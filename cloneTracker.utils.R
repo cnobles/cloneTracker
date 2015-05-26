@@ -25,8 +25,8 @@ if(FALSE %in% dependancies_present){
 #Remove width data from called intsites, returned data is used for
 #clone marking
 collapse_ranges_to_intSites <- function(sites, use_names=TRUE){
-  std_logic <- as.vector(strand(sites)) == "+"
-  adj_start <- ifelse(std_logic, start(sites), end(sites))
+  strand <- as.vector(strand(sites))
+  adj_start <- ifelse(strand == "+", start(sites), end(sites))
   adj_width <- rep(1, length(sites))
   names <- ifelse(use_names, names(sites), NULL)
   adj_ranges <- IRanges(start = adj_start, width = adj_width, names = names)
@@ -144,13 +144,10 @@ condense_metadata <- function(sites, keep_cols){
 
 #Generate position ID (posid) given intsite parameters for class::GRange
 generate_posid <- function(sites){
-  sites$posid <- sapply(1:length(sites), function(i){
-    chr <- as.character(seqnames(sites[i]))
-    strand <- as.character(strand(sites[i]))
-    pos <- ifelse(as.character(strand(sites[i])) == "+", start(sites[i]), 
-                 end(sites[i]))
-    posid <- paste0(chr, strand, pos)
-    return(posid)})
+  chr <- as.character(seqnames(sites))
+  strand <- as.vector(strand(sites))
+  pos <- ifelse(strand == "+", start(sites), end(sites))
+  sites$posid <- paste0(chr, strand, pos)
   return(sites)
 }
 
