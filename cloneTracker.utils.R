@@ -142,17 +142,31 @@ condense_metadata <- function(sites, keep_cols){
   return(cleaned_sites)
 }
 
-#A logic table simple reports on the presence or absence of a clone in a 
+#Generate position ID (posid) given intsite parameters for class::GRange
+generate_posid <- function(sites){
+  sites$posid <- sapply(1:length(sites), function(i){
+    chr <- as.character(seqnames(sites[i]))
+    strand <- as.character(strand(sites[i]))
+    pos <- ifelse(as.character(strand(sites[i])) == "+", start(sites[i]), 
+                 end(sites[i]))
+    posid <- paste0(chr, strand, pos)
+    return(posid)})
+  return(sites)
+}
+
+#A logic table simply reports on the presence or absence of a clone in a 
 #data set
 generate_logic_table <- function(hits, list){
   table <- do.call(cbind, lapply(1:length(list), function(j){
     logic_col <- sapply(1:length(hits), function(i){
-      logic <- findOverlaps(hits[i], list[[j]], maxgap = 0L, minoverlap = 1L, type = "any")
+      logic <- findOverlaps(hits[i], list[[j]], maxgap = 5L, minoverlap = 1L, type = "any")
       if(length(logic) != 0){outcome <- TRUE}else{outcome <- FALSE}
       return(outcome)
     })
     return(logic_col)
   }))
+  colnames(table) <- names(list)
+  rownames(table) <- hits$posid
   return(table)
 }
 
