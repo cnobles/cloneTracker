@@ -24,7 +24,7 @@ if(FALSE %in% dependancies_present){
 #Utility functions for clone tracking using integration sites as markers
 #Remove width data from called intsites, returned data is used for
 #clone marking
-collapse_ranges_to_intSites <- function(sites, use_names=TRUE){
+intSiteCollapse <- function(sites, use_names=TRUE){
   strand <- as.vector(strand(sites))
   adj_start <- ifelse(strand == "+", start(sites), end(sites))
   adj_width <- rep(1, length(sites))
@@ -37,7 +37,7 @@ collapse_ranges_to_intSites <- function(sites, use_names=TRUE){
 }
 
 #Return clones present in query and subject with default conditions
-return_overlaps <- function(query, subject, maxgap=5L, minoverlap=1L, 
+cloneTracker <- function(query, subject, maxgap=5L, minoverlap=1L, 
                             type="any", select="all", return_hits=1, ...){
   
   overlap_check_table <- table(
@@ -70,8 +70,9 @@ return_overlaps <- function(query, subject, maxgap=5L, minoverlap=1L,
 
 #Return all clones present in more than 1 set of data from a list of sites
 #Function makes every pairwise comparison posible from the list given
-return_total_overlaps <- function(sites, maxgap=5L, minoverlap=1L, 
-                                  type="any", select="all", return_hits=3, ...){
+cloneTrackerTotal <- function(sites, maxgap=5L, minoverlap=1L, 
+                                  type="any", select="all", 
+                                  return_hits=3, ...){
   compar_matrix <- combn(1:length(sites), 2)
   total_hits <- lapply(1:ncol(compar_matrix), function(i){
     query <- sites[[ compar_matrix[[1,i]] ]]
@@ -112,7 +113,7 @@ return_total_overlaps <- function(sites, maxgap=5L, minoverlap=1L,
 
 #Function generates the names for the overlaping comarisons for 
 #return_total_overlaps
-names_total_overlaps <- function(site_names){
+cloneTrackerTotalNames <- function(site_names){
   compar_matrix <- combn(site_names, 2)
   total_names <- sapply(1:ncol(compar_matrix), function(i){
     name <- paste0(compar_matrix[[1,i]], "_X_", compar_matrix[[2,i]])
@@ -156,7 +157,8 @@ generate_posid <- function(sites){
 generate_logic_table <- function(hits, list){
   table <- do.call(cbind, lapply(1:length(list), function(j){
     logic_col <- sapply(1:length(hits), function(i){
-      logic <- findOverlaps(hits[i], list[[j]], maxgap = 5L, minoverlap = 1L, type = "any")
+      logic <- findOverlaps(hits[i], list[[j]], maxgap = 5L, minoverlap = 1L,
+                            type = "any")
       if(length(logic) != 0){outcome <- TRUE}else{outcome <- FALSE}
       return(outcome)
     })
@@ -167,6 +169,10 @@ generate_logic_table <- function(hits, list){
   return(table)
 }
 
+#Generate a table which contains all the sonic abundances for each site
+generate_abund_table <- function()
+  
+  
 #Though likely modified for specific situations, score based on logic table
 #to determine best ranking or tracked clones
 score_tracking_hits <- function(i, table){
