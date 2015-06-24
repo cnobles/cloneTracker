@@ -39,11 +39,21 @@ intSiteCollapse <- function(sites, use_names=TRUE){
 
 #Return all clones present in more than 1 set of data from a list of sites
 #Function makes every pairwise comparison posible from the list given
-cloneTracker <- function(sites, maxgap=5L, minoverlap=1L, ...){
+cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
+  grl.sites <- sites
   
-  if(class(sites) == "list"){sites <- GRangesList(sites)}
+  if(class(sites) == "list"){grl.sites <- GRangesList(sites)}
   
-  condensed.sites <- unlist(sites, use.names = FALSE)
+  if(track.origin == TRUE){
+    list.sites <- lapply(1:length(sites), function(i){sites[[i]]})
+    list.sites <- lapply(1:length(list.sites), function(i){
+      list.sites[[i]]$origin <- names(sites[i])
+      return(list.sites[[i]])
+    })
+    grl.sites <- GRangesList(list.sites)
+  }
+  
+  condensed.sites <- unlist(grl.sites, use.names = FALSE)
     names(condensed.sites) <- 1:length(condensed.sites)
     
   overlaps <- findOverlaps(condensed.sites, condensed.sites, maxgap = maxgap)
@@ -53,14 +63,16 @@ cloneTracker <- function(sites, maxgap=5L, minoverlap=1L, ...){
   clusters.names <- split(names(condensed.sites), clusters$membership)
   clusters.lengths <- data.frame(
     id = c(1:length(clusters.names)),
-    length = sapply(clusters.names, function(x){length(x)})
-    )
+    length = sapply(clusters.names, function(x){
+      length(x)
+      }))
   
   clusters.true <- clusters.names[
     clusters.lengths[clusters.lengths$length > 1,"id"]]
   
   clustered.sites <- GRangesList(lapply(clusters.true, function(x){
-    unname(condensed.sites[x])}))
+    unname(condensed.sites[x])
+    }))
   
   return(clustered.sites)
 }
