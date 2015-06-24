@@ -1,5 +1,5 @@
 #Dependancies check, if required packages are not loaded, script is haulted
-dependancies <- c("IRanges", "GenomicRanges")
+dependancies <- c("IRanges", "GenomicRanges", "igraph")
 
 sapply(dependancies, function(package){
   library(package, character.only = TRUE)})
@@ -36,90 +36,35 @@ intSiteCollapse <- function(sites, use_names=TRUE){
   return(adj_sites)
 }
 
-#Return clones present in query and subject with default conditions
-cloneTracker <- function(query, subject, maxgap=5L, minoverlap=1L, 
-                            type="any", select="all", return_hits=1, ...){
-  
-  overlap_check_table <- table(
-    countOverlaps(query = query, subject = subject, maxgap = maxgap, 
-                  minoverlap = minoverlap, type = type)
-    )
-  
-  if(overlap_check_table[[1]] == length(query)){
-    empty_grange <- GRanges()
-    return(empty_grange)
-  }
-  
-  overlaps <- findOverlaps(query = query, subject = subject, 
-                           maxgap = maxgap, minoverlap = minoverlap, 
-                           type = type, select = select)
-  
-  query_hits <- do.call(c, sapply(1:length(overlaps), function(i){
-    hit <- query[queryHits(overlaps)[i]]
-  }))
-  names(query_hits) <- 1:length(query_hits)
-  subject_hits <- do.call(c, sapply(1:length(overlaps), function(i){
-    hit <- subject[subjectHits(overlaps)[i]]
-  }))
-  names(subject_hits) <- 1:length(subject_hits)
-  total_hits <- c(query_hits, subject_hits)
-  names(total_hits) <- 1:length(total_hits)
-  hits_list <- list(query_hits, subject_hits, total_hits)
-  return(hits_list[[return_hits]])
-}
 
 #Return all clones present in more than 1 set of data from a list of sites
 #Function makes every pairwise comparison posible from the list given
-cloneTrackerTotal <- function(sites, maxgap=5L, minoverlap=1L, 
-                                  type="any", select="all", 
-                                  return_hits=3, ...){
-  compar_matrix <- combn(1:length(sites), 2)
-  total_hits <- lapply(1:ncol(compar_matrix), function(i){
-    query <- sites[[ compar_matrix[[1,i]] ]]
-    subject <- sites[[ compar_matrix[[2,i]] ]]
+cloneTracker <- function(sites, maxgap=5L, minoverlap=1L, ...){
+  
+  if(class(sites) == "list"){sites <- GRangesList(sites)}
+  
+  condensed.sites <- unlist(sites, use.names = FALSE)
+    names(condensed.sites) <- 1:length(condensed.sites)
     
-    overlap_check_table <- table(
-      countOverlaps(query = query, subject = subject, 
-                    maxgap = maxgap, minoverlap = minoverlap, 
-                    type = type)
-      )
-    
-    if(overlap_check_table[[1]] == length(query)){
-      empty_grange <- GRanges()
-      return(empty_grange)
-    }
-    
-    overlaps <- findOverlaps(query = query, subject = subject, 
-                             maxgap = maxgap, minoverlap = minoverlap, 
-                             type = type, select = select)
-    
-    query_hits <- do.call(c, sapply(1:length(overlaps), function(j){
-      hit <- query[queryHits(overlaps)[j]]
-    }))
-    names(query_hits) <- 1:length(query_hits)
-    
-    subject_hits <- do.call(c, sapply(1:length(overlaps), function(j){
-      hit <- subject[subjectHits(overlaps)[j]]
-    }))
-    names(subject_hits) <- 1:length(subject_hits)
-    
-    total_hits <- c(query_hits, subject_hits)
-    names(total_hits) <- 1:length(total_hits)
-    hits_list <- list(query_hits, subject_hits, total_hits)
-    return(hits_list[[return_hits]])
-  })
-  return(total_hits)
+  overlaps <- findOverlaps(condensed.sites, condensed.sites, maxgap = maxgap)
+  edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+  
+  clusters <- clusters(graph.edgelist(edgelist, directed = FALSE)) #Why false directed?
+  clusters.names <- split(names(condensed.sites), clusters$membership)
+  clusters.lengths <- data.frame(
+    id = c(1:length(clusters.names)),
+    length = sapply(clusters.names, function(x){length(x)})
+    )
+  
+  clusters.true <- clusters.names[
+    clusters.lengths[clusters.lengths$length > 1,"id"]]
+  
+  clustered.sites <- GRangesList(lapply(clusters.true, function(x){
+    unname(condensed.sites[x])}))
+  
+  return(clustered.sites)
 }
 
-#Function generates the names for the overlaping comarisons for 
-#return_total_overlaps
-cloneTrackerTotalNames <- function(site_names){
-  compar_matrix <- combn(site_names, 2)
-  total_names <- sapply(1:ncol(compar_matrix), function(i){
-    name <- paste0(compar_matrix[[1,i]], "_X_", compar_matrix[[2,i]])
-  })
-  return(total_names)
-}
 
 #Find all sites/clones using a list of position ID's (posid)
 find_sites <- function(sites, posid){
@@ -130,7 +75,7 @@ find_sites <- function(sites, posid){
 
 #After clustering sites by hiReadsProcessor::clusterSites, select only
 #top hits, giving the dominant site for the cluster
-collect_top_hits_for_int_sites <- function(sites){
+.collect_top_hits_for_int_sites <- function(sites){
   sites <- sites[sites$clusterTopHit == TRUE,]
   return(sites)
 }
@@ -154,7 +99,7 @@ generate_posid <- function(sites){
 
 #A logic table simply reports on the presence or absence of a clone in a 
 #data set
-generate_logic_table <- function(hits, list){
+.generate_logic_table <- function(hits, list){
   table <- do.call(cbind, lapply(1:length(list), function(j){
     logic_col <- sapply(1:length(hits), function(i){
       logic <- findOverlaps(hits[i], list[[j]], maxgap = 5L, minoverlap = 1L,
@@ -170,12 +115,12 @@ generate_logic_table <- function(hits, list){
 }
 
 #Generate a table which contains all the sonic abundances for each site
-generate_abund_table <- function()
+.generate_abund_table <- function()
   
   
 #Though likely modified for specific situations, score based on logic table
 #to determine best ranking or tracked clones
-score_tracking_hits <- function(i, table){
+.score_tracking_hits <- function(i, table){
   score <- 0
   
   if(table[i,1] == TRUE){
