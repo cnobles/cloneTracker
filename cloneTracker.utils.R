@@ -1,5 +1,5 @@
 #Dependancies check, if required packages are not loaded, script is haulted
-dependancies <- c("IRanges", "GenomicRanges", "igraph")
+dependancies <- c("dplyr", "IRanges", "GenomicRanges", "igraph", "hiReadsProcessor")
 
 sapply(dependancies, function(package){
   library(package, character.only = TRUE)})
@@ -20,21 +20,129 @@ if(FALSE %in% dependancies_present){
   message("Required packages loaded.")
 }
 
+#Test GRange
+test <- GRanges(seqnames = Rle(values = c("chr1", "chr2", "chr3"),
+                               lengths = c(5, 10, 7)),
+                ranges = IRanges(start = c(2,7,10,7,8,15,15,17,16,14,14,6,7,6,5,2,5,8,11,14,17,20),
+                                 width = rep(30, 22)),
+                strand = Rle(values = c("+","-","+"),
+                             lengths = c(8,7,7)))
 
 #Utility functions for clone tracking using integration sites as markers
 #Remove width data from called intsites, returned data is used for
 #clone marking
-intSiteCollapse <- function(sites, use_names=TRUE){
+#Currently use.names is disfunctional
+intSiteCollapse <- function(sites, use.names=FALSE){
+  if(use.names == TRUE){if(length(names(sites)) == 0){
+    message("Sites do not have names. Changing use.names = FALSE")
+    use.names <- FALSE
+  }}
   strand <- as.vector(strand(sites))
-  adj_start <- ifelse(strand == "+", start(sites), end(sites))
-  adj_width <- rep(1, length(sites))
-  names <- ifelse(use_names, names(sites), NULL)
-  adj_ranges <- IRanges(start = adj_start, width = adj_width, names = names)
-  adj_sites <- GRanges(seqnames = seqnames(sites), 
-                       ranges = adj_ranges, strand = strand(sites))
-  mcols(adj_sites) <- mcols(sites)
-  return(adj_sites)
+  adj.start <- ifelse(strand == "+", start(sites), end(sites))
+  adj.width <- rep(1, length(sites))
+  names <- if(use.names == TRUE){names(sites)}else{1:length(sites)}
+  adj.ranges <- IRanges(start = adj.start, width = adj.width)
+  adj.sites <- GRanges(seqnames = seqnames(sites), 
+                       ranges = adj.ranges, strand = strand(sites))
+  mcols(adj.sites) <- mcols(sites)
+  return(adj.sites)
 }
+
+.intSitesCluster <- function(sites, windowSize=5L, grouping=1){
+  
+  clusters <- clusterSites(
+      posID = paste0(seqnames(sites), "_", strand(sites)),
+      value = start(sites),
+      grouping = grouping,
+      windowSize = windowSize)
+  
+  seqnames_strand <- strsplit(clusters$posID, split="_")
+  
+  sites.df <- data.frame(
+      seqnames = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][1]}),
+      strand = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][2]}),
+      start = clusters[,1])
+  
+  sites.df <- distinct(sites.df)
+  
+  sites.clustered <- GRanges(
+      seqnames = as.character(sites.df$seqnames),
+      ranges = IRanges(
+        start = sites.df$start, 
+        width = rep(1, nrow(sites.df))),
+      strand = as.character(sites.df$strand))
+  
+  return(sites.clustered)
+}
+
+#intSiteStandardize
+.intSiteStandardize <- function(sites, windowSize=5L, grouping="1", condense=FALSE, 
+                                pcr.breakpoints=FALSE, sonicAbund=FALSE, ...){
+  sites <- sort(sites)
+  true_starts <- ifelse(strand(sites) == "+", start(sites), end(sites))
+  
+  clusters <- clusterSites(
+    posID = paste0(seqnames(sites), "_", strand(sites)),
+    value = true_starts,
+    grouping = grouping,
+    windowSize = windowSize)
+  
+  seqnames_strand <- strsplit(as.character(Rle(values = clusters$posID,
+                                               lengths = clusters$freq)), split="_")
+  
+  sites.df <- data.frame(
+    seqnames = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][1]}),
+    strand = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][2]}),
+    start.cluster = Rle(values = clusters$clusteredValue, lengths = clusters$freq),
+    start.unstand = Rle(values = clusters$value, lengths = clusters$freq),
+    freq = Rle(values = clusters$freq, lengths = clusters$freq))
+  
+  sites.df <- arrange(sites.df, seqnames, desc(strand), start.unstand)
+  sites.df$end <- ifelse(strand(sites) == "+", end(sites), start(sites))
+  
+  range.standardized <- IRanges(
+    start = ifelse(sites.df$strand == "+", sites.df$start.cluster, sites.df$end),
+    end = ifelse(sites.df$strand == "+", sites.df$end, sites.df$start.cluster))
+  
+  sites.standardized <- GRanges(
+    seqnames = sites.df$seqnames,
+    ranges = range.standardized,
+    strand = sites.df$strand,
+    seqinfo = seqinfo(sites))
+  
+  mcols(sites.standardized) <- mcols(sites)
+  
+  return(sites.standardized)
+}
+
+
+
+
+##Function to cluster integration sites into unique integration sites
+intSiteCluster <- function(sites, track.origin=TRUE, origin.column=NULL, 
+                           sonicAbund=TRUE, ...){
+  
+  if(track.origin == TRUE){
+    if(length(origin.column) == 0){
+      message("Select origin.column.")
+      stop()}}
+  
+  if(mean(width(sites)) != 1){
+    message("Collapse intSites before clustering.")
+    stop()}
+  
+  posID <- paste0(seqnames(sites), strand(sites))
+  value <- start(sites)
+  fragLen <- width(sites)
+  
+  clusters <- clusterSites(posID = posID, value = value)
+  
+  #Maybe just take away clusterSites and use findOverlaps and igraph (if needed)
+  
+  #Generate posID for clusterSites
+  #from clusterSites, generate clustered posID's and pull lengths from sites 
+  #using the clusterSites output as a key to link posID1 and posID2
+  }
 
 
 #Return all clones present in more than 1 set of data from a list of sites
@@ -77,6 +185,39 @@ cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
   return(clustered.sites)
 }
 
+
+#In order to use GRange objects with hiReadsProcessor package,
+#we'll need to get them in the correct format, as if they were psl files
+.prepGRanges <- function(sites, origin.column=origin.column, ...){
+  
+  mcols <- mcols(sites)
+  
+  sites.psl <- data.frame(
+    matches = as.numeric(width(sites)),
+    misMatches = as.numeric(rep(0, length(sites))),
+    repMatches = as.numeric(rep(0, length(sites))),
+    nCount = as.numeric(rep(0, length(sites))),
+    qNumInsert = as.numeric(rep(0, length(sites))),
+    qBaseInsert = as.numeric(rep(0, length(sites))),
+    tNumInsert = as.numeric(rep(0, length(sites))),
+    tBaseInsert = as.numeric(rep(0, length(sites))),
+    strand = as.character(strand(sites)),
+    qName = as.character(mcols[, sample.name]),
+    qSize = as.numeric(width(sites)),
+    qStart = as.numeric(rep(0, length(sites))),
+    qEnd = as.numeric(width(sites)),
+    tName = as.character(seqnames(sites)),
+    tSize = as.numeric(rep(NA, length(sites))),
+    tStart = as.numeric(start(sites)),
+    tEnd = as.numeric(end(sites)),
+    blockCount = as.numeric(rep(1, length(sites))),
+    blockSizes = as.character(rep(NA, length(sites))),
+    qStarts = as.character(rep(NA, length(sites))),
+    tStarts = as.character(rep(NA, length(sites)))
+  )
+  
+  return(sites.psl, mcols)
+}
 
 #Find all sites/clones using a list of position ID's (posid)
 find_sites <- function(sites, posid){
