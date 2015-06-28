@@ -31,20 +31,23 @@ test <- GRanges(seqnames = Rle(values = c("chr1", "chr2", "chr3"),
 #Utility functions for clone tracking using integration sites as markers
 #Remove width data from called intsites, returned data is used for
 #clone marking
-#Currently use.names is disfunctional
+
 intSiteCollapse <- function(sites, use.names=FALSE){
   if(use.names == TRUE){if(length(names(sites)) == 0){
     message("Sites do not have names. Changing use.names = FALSE")
     use.names <- FALSE
-  }}
+    }}
+  
   strand <- as.vector(strand(sites))
   adj.start <- ifelse(strand == "+", start(sites), end(sites))
   adj.width <- rep(1, length(sites))
-  names <- if(use.names == TRUE){names(sites)}else{1:length(sites)}
   adj.ranges <- IRanges(start = adj.start, width = adj.width)
   adj.sites <- GRanges(seqnames = seqnames(sites), 
                        ranges = adj.ranges, strand = strand(sites))
+  
   mcols(adj.sites) <- mcols(sites)
+  if(use.names == TRUE){names(adj.sites) <- names(sites)}
+ 
   return(adj.sites)
 }
 
@@ -75,9 +78,10 @@ intSiteCollapse <- function(sites, use.names=FALSE){
   return(sites.clustered)
 }
 
-#intSiteStandardize
+#intSiteStandardize, change name at some point
 .intSiteStandardize <- function(sites, windowSize=5L, grouping="1", condense=FALSE, 
-                                pcr.breakpoints=FALSE, sonicAbund=FALSE, ...){
+                                pcr.breakpoints=FALSE, sonicAbund=FALSE, 
+                                keep.mcols=TRUE, ...){
   sites <- sort(sites)
   true_starts <- ifelse(strand(sites) == "+", start(sites), end(sites))
   
@@ -110,7 +114,53 @@ intSiteCollapse <- function(sites, use.names=FALSE){
     strand = sites.df$strand,
     seqinfo = seqinfo(sites))
   
-  mcols(sites.standardized) <- mcols(sites)
+  if(keep.mcols == TRUE){
+    mcols <- mcols(sites)
+  }else{
+    mcols <- NULL
+  }
+  
+  mcols(sites.standardized) <- mcols
+  
+  if(condense == TRUE){
+    sites.reduced <- intSiteCollapse(sites.standardized)
+    sites.reduced <- unlist(reduce(sites.reduced, with.revmap=TRUE))
+    sites.reduced$counts <- sapply(sites.reduced$revmap, length)
+    
+    #Not sure if I need this as the sites.standardized were sorted already, and this function would
+    #just unlist to a sequence of 1:length(sites.standardized)
+    sites.condensed <- sites.standardized[unlist(sites.reduced$revmap)]
+    sites.condensed <- split(sites.condensed, Rle(values = seq(length(sites.reduced)), 
+                                                  lengths = sites.reduced$counts))
+    
+    if(pcr.breakpoints == TRUE){
+      comma.paste <- function(...){paste(..., sep=",")}
+      breakpoints <- lapply(sites.condensed, width)
+      breakpoints <- lapply(1:length(breakpoints), function(i){
+        do.call(comma.paste, lapply(1:length(breakpoints[[i]]), 
+                                    function(j){breakpoints[[i]][j]}))})
+      breakpoints <- unlist(breakpoints)
+    }
+    
+    mcols.condensed <- lapply(1:length(sites.condensed), function(i){
+      mcols.i <- mcols(sites.condensed[[i]][1])})
+    mcols.condensed <- do.call(rbind, lapply(1:length(mcols.condensed), function(i){
+      mcols.condensed[[i]]}))
+    
+    sites.condensed <- unlist(reduce(sites.condensed))
+    mcols(sites.condensed) <- mcols.condensed
+    
+    if(pcr.breakpoints == TRUE){sites.condensed$pcr.breakpoints <- breakpoints}
+    
+    if(sonicAbund == TRUE){
+      posID <- generate_posid(sites.condensed)
+      fragLen <- lapply(1:length(breakpoints), function(i){
+        breaks <- strsplit(breakpoints[[i]], split=",")
+        breaks <- as.integer(breaks[[1]])})
+      sonicAbund <- lapply(1:length(sites.condensed), function(i){
+        getSonicAbund(posID = posID[i], fragLen = fragLen[[i]], grouping = "1")})
+    #check getSonicAbund actually works, seems to give some weird output in estAbund for single sites
+  }
   
   return(sites.standardized)
 }
@@ -119,34 +169,39 @@ intSiteCollapse <- function(sites, use.names=FALSE){
 
 
 ##Function to cluster integration sites into unique integration sites
-intSiteCluster <- function(sites, track.origin=TRUE, origin.column=NULL, 
-                           sonicAbund=TRUE, ...){
-  
-  if(track.origin == TRUE){
-    if(length(origin.column) == 0){
-      message("Select origin.column.")
-      stop()}}
-  
-  if(mean(width(sites)) != 1){
-    message("Collapse intSites before clustering.")
-    stop()}
-  
-  posID <- paste0(seqnames(sites), strand(sites))
-  value <- start(sites)
-  fragLen <- width(sites)
-  
-  clusters <- clusterSites(posID = posID, value = value)
+#intSiteCluster <- function(sites, track.origin=TRUE, origin.column=NULL, 
+#                           sonicAbund=TRUE, ...){
+#  
+#  if(track.origin == TRUE){
+#    if(length(origin.column) == 0){
+#      message("Select origin.column.")
+#      stop()}}
+#  
+#  if(mean(width(sites)) != 1){
+#    message("Collapse intSites before clustering.")
+#    stop()}
+#  
+#  posID <- paste0(seqnames(sites), strand(sites))
+#  value <- start(sites)
+#  fragLen <- width(sites)
+#  
+#  clusters <- clusterSites(posID = posID, value = value)
   
   #Maybe just take away clusterSites and use findOverlaps and igraph (if needed)
   
   #Generate posID for clusterSites
   #from clusterSites, generate clustered posID's and pull lengths from sites 
   #using the clusterSites output as a key to link posID1 and posID2
-  }
+#  }
 
 
 #Return all clones present in more than 1 set of data from a list of sites
 #Function makes every pairwise comparison posible from the list given
+#From reading clusterSites function, which is findOverlaps based,
+#I found that you don't have to specify a subject if query = subject
+#and that adding the variable ignore.self (or something like that)
+#which could reduce the length and demand of cloneTracker towards the end
+
 cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
   grl.sites <- sites
   
@@ -246,8 +301,8 @@ generate_posid <- function(sites){
   chr <- as.character(seqnames(sites))
   strand <- as.vector(strand(sites))
   pos <- ifelse(strand == "+", start(sites), end(sites))
-  sites$posid <- paste0(chr, strand, pos)
-  return(sites)
+  posID <- paste0(chr, strand, pos)
+  return(posID)
 }
 
 #A logic table simply reports on the presence or absence of a clone in a 
