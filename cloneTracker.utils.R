@@ -80,7 +80,7 @@ intSiteCollapse <- function(sites, use.names=FALSE){
 
 #intSiteStandardize, change name at some point
 .intSiteStandardize <- function(sites, windowSize=5L, grouping="1", condense=FALSE, 
-                                pcr.breakpoints=FALSE, sonicAbund=FALSE, 
+                                pcr.breakpoints=FALSE, return.sonicAbund=FALSE, 
                                 keep.mcols=TRUE, ...){
   sites <- sort(sites)
   true_starts <- ifelse(strand(sites) == "+", start(sites), end(sites))
@@ -129,8 +129,8 @@ intSiteCollapse <- function(sites, use.names=FALSE){
     
     #Not sure if I need this as the sites.standardized were sorted already, and this function would
     #just unlist to a sequence of 1:length(sites.standardized)
-    sites.condensed <- sites.standardized[unlist(sites.reduced$revmap)]
-    sites.condensed <- split(sites.condensed, Rle(values = seq(length(sites.reduced)), 
+    #sites.condensed <- sites.standardized[unlist(sites.reduced$revmap)]
+    sites.condensed <- split(sites.standardized, Rle(values = seq(length(sites.reduced)), 
                                                   lengths = sites.reduced$counts))
     
     if(pcr.breakpoints == TRUE){
@@ -140,7 +140,7 @@ intSiteCollapse <- function(sites, use.names=FALSE){
         do.call(comma.paste, lapply(1:length(breakpoints[[i]]), 
                                     function(j){breakpoints[[i]][j]}))})
       breakpoints <- unlist(breakpoints)
-    }
+      }
     
     mcols.condensed <- lapply(1:length(sites.condensed), function(i){
       mcols.i <- mcols(sites.condensed[[i]][1])})
@@ -152,17 +152,43 @@ intSiteCollapse <- function(sites, use.names=FALSE){
     
     if(pcr.breakpoints == TRUE){sites.condensed$pcr.breakpoints <- breakpoints}
     
-    if(sonicAbund == TRUE){
+    if(return.sonicAbund == TRUE){
       posID <- generate_posid(sites.condensed)
       fragLen <- lapply(1:length(breakpoints), function(i){
         breaks <- strsplit(breakpoints[[i]], split=",")
         breaks <- as.integer(breaks[[1]])})
-      sonicAbund <- lapply(1:length(sites.condensed), function(i){
-        getSonicAbund(posID = posID[i], fragLen = fragLen[[i]], grouping = "1")})
+      sonicAbund <- do.call(rbind, lapply(1:length(sites.condensed), function(i){
+        getSonicAbund(posID = posID[i], fragLen = fragLen[[i]], grouping = "1")}))
     #check getSonicAbund actually works, seems to give some weird output in estAbund for single sites
+      mcols.condensed <- mcols(sites.condensed)
+      mcols.condensed$posID <- generate_posid(sites.condensed)
+      mcols.condensed$posID2 <- sonicAbund[,2]
+      mcols.condensed$estAbund <- sonicAbund[,3]
+      merge.check <- data.frame(table(mcols.condensed$posID == mcols.condensed$posID2))
+      
+      if(merge.check[merge.check[,1] == TRUE,"Freq"] != nrow(mcols.condensed)){
+        message("Failed to merge estAbund with mcols.condensed.")
+        stop()}
+      
+      mcols(sites.condensed) <- mcols.condensed
+      
+      sites.condensed$posID3 <- generate_posid(sites.condensed)
+      merge.check <- data.frame(table(sites.condensed$posID == sites.condensed$posID3))
+      if(merge.check[merge.check[,1] == TRUE, "Freq"] != length(sites.condensed)){
+        message("Failed to correctly merge mcols with sites.condensed.")
+        stop()}
+      
+      sites.condensed$posID <- sites.condensed$posID2 <- sites.condensed$posID3 <- NULL
+    }
+  }  
+    
+  if(condense == FALSE){
+    sites.requested <- sites.standardized
+  }else{
+    sites.requested <- sites.condensed
   }
   
-  return(sites.standardized)
+  return(sites.requested)
 }
 
 
@@ -353,5 +379,4 @@ generate_posid <- function(sites){
     score <- add(0, score)
   }
   
-  return(score)
-}
+  return(score)}
