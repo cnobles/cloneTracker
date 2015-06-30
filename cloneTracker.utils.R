@@ -52,7 +52,7 @@ intSiteCollapse <- function(sites, use.names=FALSE){
 }
 
 
-intSitesCluster <- function(sites, windowSize=5L, grouping=1){
+intSiteCluster <- function(sites, windowSize=5L, grouping=1){
   
   clusters <- clusterSites(
       posID = paste0(seqnames(sites), "_", strand(sites)),
@@ -187,8 +187,6 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
 }
 
 
-
-
 #Return all clones present in more than 1 set of data from a list of sites
 #Function makes every pairwise comparison posible from the list given
 #From reading clusterSites function, which is findOverlaps based,
@@ -235,52 +233,13 @@ cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
 }
 
 
-#In order to use GRange objects with hiReadsProcessor package,
-#we'll need to get them in the correct format, as if they were psl files
-.prepGRanges <- function(sites, origin.column=origin.column, ...){
-  
-  mcols <- mcols(sites)
-  
-  sites.psl <- data.frame(
-    matches = as.numeric(width(sites)),
-    misMatches = as.numeric(rep(0, length(sites))),
-    repMatches = as.numeric(rep(0, length(sites))),
-    nCount = as.numeric(rep(0, length(sites))),
-    qNumInsert = as.numeric(rep(0, length(sites))),
-    qBaseInsert = as.numeric(rep(0, length(sites))),
-    tNumInsert = as.numeric(rep(0, length(sites))),
-    tBaseInsert = as.numeric(rep(0, length(sites))),
-    strand = as.character(strand(sites)),
-    qName = as.character(mcols[, sample.name]),
-    qSize = as.numeric(width(sites)),
-    qStart = as.numeric(rep(0, length(sites))),
-    qEnd = as.numeric(width(sites)),
-    tName = as.character(seqnames(sites)),
-    tSize = as.numeric(rep(NA, length(sites))),
-    tStart = as.numeric(start(sites)),
-    tEnd = as.numeric(end(sites)),
-    blockCount = as.numeric(rep(1, length(sites))),
-    blockSizes = as.character(rep(NA, length(sites))),
-    qStarts = as.character(rep(NA, length(sites))),
-    tStarts = as.character(rep(NA, length(sites)))
-  )
-  
-  return(sites.psl, mcols)
-}
-
 #Find all sites/clones using a list of position ID's (posid)
-find_sites <- function(sites, posid){
-  request <- do.call(c, lapply(1:length(posid), function(i){
-    sites[sites$posid == posid[[i]],]
+find_sites <- function(sites, posID){
+  request <- do.call(c, lapply(1:length(posID), function(i){
+    sites[sites$posID == posID[[i]],]
   }))
 }
 
-#After clustering sites by hiReadsProcessor::clusterSites, select only
-#top hits, giving the dominant site for the cluster
-.collect_top_hits_for_int_sites <- function(sites){
-  sites <- sites[sites$clusterTopHit == TRUE,]
-  return(sites)
-}
 
 #Using a keep_cols list, remove unwanted metadata from GRanges
 condense_metadata <- function(sites, keep_cols){
