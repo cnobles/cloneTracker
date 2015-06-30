@@ -84,54 +84,48 @@ intSiteCluster <- function(sites, windowSize=5L, grouping=1){
 #intSiteStandardize, change name at some point
 intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE, 
                                 pcr.breakpoints=FALSE, return.sonicAbund=FALSE, 
-                                keep.mcols=TRUE, ...){
-  if(length(mcols(sites)) == 0){keep.mcols <- FALSE}
-  sites$posID <- generate_posid(sites)
+                                keep.mcols=FALSE, ...){
+  
+  if(keep.mcols == TRUE & length(mcols(sites)) == 0){keep.mcols <- FALSE}
+  
   mcols <- mcols(sites)
+  mcols(sites) <- NULL
   true_starts <- ifelse(strand(sites) == "+", start(sites), end(sites))
   
   clusters <- clusterSites(
-    posID = paste0(seqnames(sites), "_", strand(sites)),
+    posID = paste0(seqnames(sites), ":", strand(sites)),
     value = true_starts,
     grouping = grouping,
     windowSize = windowSize)
   
   seqnames_strand <- strsplit(as.character(Rle(values = clusters$posID,
-                                               lengths = clusters$freq)), split="_")
+                                               lengths = clusters$freq)), split=":")
   
-  sites.df <- data.frame(
+  ranges.gr <- IRanges(start = as.integer(Rle(values = clusters$value, lengths = clusters$freq)),
+                       width = 1)
+  sites.gr <- GRanges(
     seqnames = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][1]}),
     strand = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][2]}),
-    start.cluster = Rle(values = clusters$clusteredValue, lengths = clusters$freq),
-    start.unstand = Rle(values = clusters$value, lengths = clusters$freq))
+    start.cluster = as.integer(Rle(values = clusters$clusteredValue, lengths = clusters$freq)),
+    ranges = ranges.gr, seqinfo = seqinfo(sites))
   
-  sites.df$posID <- generate_posid(seqnames = sites.df$seqnames, strand = sites.df$strand,
-                                   start = sites.df$start.unstand, end = sites.df$start.unstand)
-  posID_end <- data.frame(posID = sites$posID, 
-                          end = ifelse(strand(sites) == "+", end(sites), start(sites)))
-  posID_end <- posID_end[match(sites.df$posID, posID_end$posID, incomparables = TRUE),]
-  sites.df$end <- posID_end$end
+  sites <- sort(sites)
+  sites.gr <- sort(sites.gr)
+  sites$start.cluster <- sites.gr$start.cluster
   
-  range.standardized <- IRanges(
-    start = ifelse(sites.df$strand == "+", sites.df$start.cluster, sites.df$end),
-    end = ifelse(sites.df$strand == "+", sites.df$end, sites.df$start.cluster))
+  adj.starts <- ifelse(strand(sites) == "+", sites$start.cluster, start(sites))
+  adj.ends <- ifelse(strand(sites) == "+", end(sites), sites$start.cluster)
+  adj.ranges <- IRanges(start = adj.starts, end = adj.ends)
   
   sites.standardized <- GRanges(
-    seqnames = sites.df$seqnames,
-    ranges = range.standardized,
-    strand = sites.df$strand,
-    posID = sites.df$posID,
+    seqnames = seqnames(sites),
+    ranges = adj.ranges,
+    strand = strand(sites),
     seqinfo = seqinfo(sites))
   
-  if(keep.mcols == FALSE){
-    mcols <- NULL
-  }else{
-    mcols <- mcols[match(sites.standardized$posID, mcols$posID, incomparables = TRUE),]
-    mcols$posID <- NULL
-  }
+  if(keep.mcols == FALSE){mcols <- NULL}
   
   mcols(sites.standardized) <- mcols
-  sites.standardized$posID <- NULL
   
   if(condense == TRUE){
     sites.reduced <- intSiteCollapse(sites.standardized)
@@ -162,7 +156,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
     if(pcr.breakpoints == TRUE){sites.condensed$pcr.breakpoints <- breakpoints}
     
     if(return.sonicAbund == TRUE){
-      posID <- generate_posid(sites.standardized)
+      posID <- generate_posID(sites.standardized)
       fragLen <- width(sites.standardized)
       dfr <- data.frame(posID = rep(posID, sapply(fragLen, length)),
                         fragLen = unlist(fragLen), grouping = grouping,
@@ -171,7 +165,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
       sonicAbund <- with(dfr, getSonicAbund(posID, fragLen, grouping))
       estAbund <- sonicAbund[,2:3]
       
-      sites.condensed$posID <- generate_posid(sites.condensed)
+      sites.condensed$posID <- generate_posID(sites.condensed)
       estAbund <- estAbund[match(estAbund$posID, sites.condensed$posID),]
       sites.condensed$estAbund <- estAbund$estAbund
     }
@@ -250,7 +244,7 @@ condense_metadata <- function(sites, keep_cols){
 }
 
 #Generate position ID (posid) given intsite parameters for class::GRange
-generate_posid <- function(sites=NULL, seqnames=NULL, strand=NULL, start=NULL, end=NULL, ...){
+generate_posID <- function(sites=NULL, seqnames=NULL, strand=NULL, start=NULL, end=NULL, ...){
   if(length(sites) != 0){
     if(class(sites) == "GRanges"){
       chr <- as.character(seqnames(sites))
