@@ -52,7 +52,7 @@ intSiteCollapse <- function(sites, use.names=FALSE){
 }
 
 
-intSiteCluster <- function(sites, windowSize=5L, grouping=1){
+.intSiteCluster <- function(sites, windowSize=5L, grouping=1){
   
   clusters <- clusterSites(
       posID = paste0(seqnames(sites), "_", strand(sites)),
@@ -88,43 +88,46 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
   
   if(keep.mcols == TRUE & length(mcols(sites)) == 0){keep.mcols <- FALSE}
   
+  sites <- sort(sites)
   mcols <- mcols(sites)
   mcols(sites) <- NULL
-  true_starts <- ifelse(strand(sites) == "+", start(sites), end(sites))
   
-  clusters <- clusterSites(
-    posID = paste0(seqnames(sites), ":", strand(sites)),
-    value = true_starts,
-    grouping = grouping,
-    windowSize = windowSize)
+  #Add required columns to pass into clusterSites as a psl.rd
+  sites$Position <- ifelse(strand(sites) == "+", start(sites), end(sites))
+  sites$Break <- ifelse(strand(sites) == "+", end(sites), start(sites))
+  sites$score <- rep(95, length(sites))
+  sites$qEnd <- width(sites)
   
-  seqnames_strand <- strsplit(as.character(Rle(values = clusters$posID,
-                                               lengths = clusters$freq)), split=":")
+  #Positions clustered by 5L window and best position is chosen for cluster
+  sites.standardized <- clusterSites(
+    psl.rd = sites,
+    weight = rep(1, length(sites)),
+    sonicAbund = return.sonicAbund)
   
-  ranges.gr <- IRanges(start = as.integer(Rle(values = clusters$value, lengths = clusters$freq)),
-                       width = 1)
-  sites.gr <- GRanges(
-    seqnames = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][1]}),
-    strand = sapply(1:length(seqnames_strand), function(i){seqnames_strand[[i]][2]}),
-    start.cluster = as.integer(Rle(values = clusters$clusteredValue, lengths = clusters$freq)),
-    ranges = ranges.gr, seqinfo = seqinfo(sites))
+  start(sites.standardized) <- ifelse(strand(sites.standardized) == "+", 
+                                      sites.standardized$clusteredPosition, 
+                                      sites.standardized$Break)
+  end(sites.standardized) <- ifelse(strand(sites.standardized) == "-",
+                                    sites.standardized$clusteredPosition, 
+                                    sites.standardized$Break)
   
-  sites <- sort(sites)
-  sites.gr <- sort(sites.gr)
-  sites$start.cluster <- sites.gr$start.cluster
+  sites.standardized$Position <- NULL
+  sites.standardized$Break <- NULL
+  sites.standardized$score <- NULL
+  sites.standardized$qEnd <- NULL
+  sites.standardized$clusteredPosition <- NULL
+  sites.standardized$clonecount <- NULL
+  sites.standardized$clusterTopHit <- NULL
   
-  adj.starts <- ifelse(strand(sites) == "+", sites$start.cluster, start(sites))
-  adj.ends <- ifelse(strand(sites) == "+", end(sites), sites$start.cluster)
-  adj.ranges <- IRanges(start = adj.starts, end = adj.ends)
-  
-  sites.standardized <- GRanges(
-    seqnames = seqnames(sites),
-    ranges = adj.ranges,
-    strand = strand(sites),
-    seqinfo = seqinfo(sites))
+  sites.standardized <- sort(sites.standardized)
   
   if(keep.mcols == FALSE){mcols <- NULL}
-  
+  if(return.sonicAbund == TRUE){
+    if(is.null(mcols)){
+      mcols <- mcols(sites.standardized)
+    }else{
+      mcols <- cbind(mcols, mcols(sites.standardized))
+    }}
   mcols(sites.standardized) <- mcols
   
   if(condense == TRUE){
@@ -136,6 +139,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
     sites.condensed <- split(sites.condensed, Rle(values = seq(length(sites.reduced)), 
                                                   lengths = sites.reduced$counts))
     
+    #Try to change this into an integrer list rather than character.string
     if(pcr.breakpoints == TRUE){
       comma.paste <- function(...){paste(..., sep=",")}
       breakpoints <- lapply(sites.condensed, width)
@@ -154,22 +158,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
     mcols(sites.condensed) <- mcols.condensed
     
     if(pcr.breakpoints == TRUE){sites.condensed$pcr.breakpoints <- breakpoints}
-    
-    if(return.sonicAbund == TRUE){
-      posID <- generate_posID(sites.standardized)
-      fragLen <- width(sites.standardized)
-      dfr <- data.frame(posID = rep(posID, sapply(fragLen, length)),
-                        fragLen = unlist(fragLen), grouping = grouping,
-                        row.names = NULL, stringsAsFactors = FALSE)
-      
-      sonicAbund <- with(dfr, getSonicAbund(posID, fragLen, grouping))
-      estAbund <- sonicAbund[,2:3]
-      
-      sites.condensed$posID <- generate_posID(sites.condensed)
-      estAbund <- estAbund[match(estAbund$posID, sites.condensed$posID),]
-      sites.condensed$estAbund <- estAbund$estAbund
-    }
-  }  
+  }
     
   if(condense == FALSE){
     sites.requested <- sites.standardized
