@@ -10,11 +10,10 @@ dependancies_present <- sapply(dependancies, function(package){
 })
 
 if(FALSE %in% dependancies_present){
-  message("Load required packages. Check Unloaded_Packages for missing
-          dependancies.")
   Unloaded_Packages <- data.frame(package=as.character(dependancies), 
                                   loaded=dependancies_present)
-  stop()
+  stop("Load required packages. Check Unloaded_Packages for missing
+          dependancies.")
   }else{
   remove(dependancies, dependancies_present)
   message("Required packages loaded.")
@@ -32,6 +31,7 @@ test <- GRanges(seqnames = Rle(values = c("chr1", "chr2", "chr3"),
 #Remove width data from called intsites, returned data is used for
 #clone marking
 
+#Difference between this function and flank(x, -1, start=TRUE) is neglegible
 intSiteCollapse <- function(sites, use.names=FALSE){
   if(use.names == TRUE){if(length(names(sites)) == 0){
     message("Sites do not have names. Changing use.names = FALSE")
@@ -48,7 +48,7 @@ intSiteCollapse <- function(sites, use.names=FALSE){
   mcols(adj.sites) <- mcols(sites)
   if(use.names == TRUE){names(adj.sites) <- names(sites)}
  
-  return(adj.sites)
+  adj.sites
 }
 
 
@@ -83,10 +83,22 @@ intSiteCollapse <- function(sites, use.names=FALSE){
 
 #intSiteStandardize, change name at some point
 intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE, 
-                                pcr.breakpoints=FALSE, return.sonicAbund=FALSE, 
-                                keep.mcols=FALSE, ...){
+                                pcrBreakpoints=FALSE, returnAbund=FALSE, 
+                                abundMethod="fragLen", keepMcols=FALSE, ...){
   
-  if(keep.mcols == TRUE & length(mcols(sites)) == 0){keep.mcols <- FALSE}
+  if(keepMcols == TRUE & length(mcols(sites)) == 0){keepMcols <- FALSE}
+  
+  if(returnAbund){
+    if(abundMethod == "fragLen"){
+      Abund <- FALSE
+    }else if(abundMethod == "estAbund"){
+      Abund <- TRUE
+    }else{
+      stop("Must choose either fragLen or estAbund for abundMethod.")
+    }
+  }else{
+    Abund <- FALSE
+  }
   
   sites <- sort(sites)
   mcols <- mcols(sites)
@@ -102,7 +114,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
   sites.standardized <- clusterSites(
     psl.rd = sites,
     weight = rep(1, length(sites)),
-    sonicAbund = return.sonicAbund)
+    sonicAbund = Abund)
   
   start(sites.standardized) <- ifelse(strand(sites.standardized) == "+", 
                                       sites.standardized$clusteredPosition, 
@@ -116,21 +128,62 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
   sites.standardized$score <- NULL
   sites.standardized$qEnd <- NULL
   sites.standardized$clusteredPosition <- NULL
-  sites.standardized$clonecount <- NULL
-  sites.standardized$clusterTopHit <- NULL
-  
+  if(condense){
+    sites.standardized$clonecount <- NULL
+    sites.standardized$clusterTopHit <- NULL
+  }
   sites.standardized <- sort(sites.standardized)
   
-  if(keep.mcols == FALSE){mcols <- NULL}
-  if(return.sonicAbund == TRUE){
+  if(returnAbund){
+    if(abundMethod == "fragLen"){
+      estAbund.uniqueFragLen <- function(location, fragLen, replicate=NULL){
+        if(is.null(replicate)){replicate <- 1}  #Need for downstream workflow
+        dfr <- data.frame(location = location, fragLen = fragLen, 
+                          replicate = replicate)
+        dfr_dist <- distinct(dfr)
+        site_list <- split(dfr_dist, dfr_dist$location)
+        theta <- sapply(site_list, function(x){nrow(x)})
+        theta <- theta[unique(dfr$location)]
+        list(theta=theta)
+      }
+      
+      reps <- which("replicate" == names(mcols))
+      if(length(reps) != 0){
+        replicate <- mcols$replicate
+      }else{
+        replicate <- rep(1, length(sites.standardized))
+      }
+      
+      posid <- generate_posID(sites.standardized)
+      dfr <- data.frame("ID" = posid,
+                        "fragLength" = width(sites.standardized),
+                        "replicate" = replicate)
+      
+      if(length(unique(dfr$replicate)) == 1){
+        estimatedAbundances <- estAbund.uniqueFragLen(dfr$ID, dfr$fragLength)
+      }else{
+        estimatedAbundances <- estAbund.uniqueFragLen(dfr$ID, dfr$fragLength, dfr$replicate)
+      }
+      
+      sites.standardized$estAbund <- round(estimatedAbundances$theta)
+      sites.standardized$estAbundProp <- sites.standardized$estAbund/sum(sites.standardized$estAbund)
+      sites.standardized$estAbundRank <- rank(-1*sites.standardized$estAbundProp, ties.method="max")
+      
+      rm(estimatedAbundances, dfr, posid, replicate)
+    }
+  }
+  
+  if(keepMcols == FALSE){mcols <- NULL}
+  if(returnAbund){
     if(is.null(mcols)){
       mcols <- mcols(sites.standardized)
     }else{
       mcols <- cbind(mcols, mcols(sites.standardized))
-    }}
+    }
+  }
   mcols(sites.standardized) <- mcols
   
-  if(condense == TRUE){
+  if(condense){
     sites.reduced <- intSiteCollapse(sites.standardized)
     sites.reduced <- unlist(reduce(sites.reduced, with.revmap=TRUE))
     sites.reduced$counts <- sapply(sites.reduced$revmap, length)
@@ -140,7 +193,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
                                                   lengths = sites.reduced$counts))
     
     #Try to change this into an integrer list rather than character.string
-    if(pcr.breakpoints == TRUE){
+    if(pcrBreakpoints == TRUE){
       comma.paste <- function(...){paste(..., sep=",")}
       breakpoints <- lapply(sites.condensed, width)
       breakpoints <- lapply(1:length(breakpoints), function(i){
@@ -157,7 +210,7 @@ intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE,
     sites.condensed <- unlist(reduce(sites.condensed))
     mcols(sites.condensed) <- mcols.condensed
     
-    if(pcr.breakpoints == TRUE){sites.condensed$pcr.breakpoints <- breakpoints}
+    if(pcrBreakpoints == TRUE){sites.condensed$pcrBreakpoints <- breakpoints}
   }
     
   if(condense == FALSE){
@@ -193,7 +246,8 @@ cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
   
   condensed.sites <- unlist(grl.sites, use.names = FALSE)
     names(condensed.sites) <- 1:length(condensed.sites)
-    
+  
+  #rather try findOverlaps(condensed.sites, ignoreSelf=TRUE, ignoreRedundant = FALSE, select = "all", maxgap = maxgap)    
   overlaps <- findOverlaps(condensed.sites, condensed.sites, maxgap = maxgap)
   edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
   
