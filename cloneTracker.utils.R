@@ -32,7 +32,7 @@ test <- GRanges(seqnames = Rle(values = c("chr1", "chr2", "chr3"),
 #clone marking
 
 #Difference between this function and flank(x, -1, start=TRUE) is neglegible
-intSiteCollapse <- function(sites, use.names=FALSE){
+.intSiteCollapse <- function(sites, use.names=FALSE){
   if(use.names == TRUE){if(length(names(sites)) == 0){
     message("Sites do not have names. Changing use.names = FALSE")
     use.names <- FALSE
@@ -149,13 +149,10 @@ intSiteAbund <- function(sites, method="fragLen"){
     stop("Must choose either fragLen or estAbund for method.")
   }
   
-  #if(length(unique(replicates)) == 1){
-  #  abundances <- abundCalc(posID, fragLen)
-  #}else{
   abund.dfr <- abundCalc(locations = sites.dfr$posID,
                          fragLen = sites.dfr$fragLen, 
                           replicates = sites.dfr$replicates)
-  #}
+  
   abund.dfr$estAbund <- round(abund.dfr$estAbund)
   abund.dfr$estAbundProp <- abund.dfr$estAbund/sum(abund.dfr$estAbund)
   abund.dfr$estAbundRank <- rank(-1*abund.dfr$estAbundProp, ties.method="max")
@@ -163,10 +160,84 @@ intSiteAbund <- function(sites, method="fragLen"){
   abund.dfr
 }
 
-
+#intSiteStandardize only
+intSiteStandardize <- function(sites.unstandardized, window.size=5L, 
+                               grouping=NULL, keep.mcols=FALSE, ...){
+  sites.unstandardized <- sort(sites.unstandardized)
+  if(is.null(grouping)){
+    sites.gp <- list(sites.unstandardized)
+  }else if(grouping %in% names(mcols(sites))){
+    groups <- mcols(sites.unstandardized)[
+      grep(grouping, names(mcols(sites.unstandardized)))]
+    sites.gp <- split(sites, paste0("sites$", groups))
+  }else{
+    stop("Grouping partitioning failed. Make sure grouping is either NULL or 
+         refering to the correct column in GRanges object.")
+  }
+  
+  sites.standardized <- lapply(sites.gp, function(sites){
+    sites$calledStart <- ifelse(strand(sites) == "+", start(sites), end(sites)) 
+    sites$sonicBreak <- ifelse(strand(sites) == "+", end(sites), start(sites))
+    sites.fl <- flank(sites, width = -1, start = TRUE)
+    overlaps <- findOverlaps(sites.fl, maxgap = window.size, select = "all", 
+                             ignoreSelf = TRUE, ignoreRedundant = TRUE)
+    edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+    clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
+    sites.fl$clusterID <- clusters$membership
+    sites.fl <- split(sites.fl, sites.fl$clusterID)
+    sites.clus <- lapply(1:length(sites.fl), function(i){
+      clus <- sites.fl[[i]]
+      clus$readID <- seq(1:length(clus))
+      freq.df <- as.data.frame(table(clus$calledStart))
+      clus.df <- as.data.frame(mcols(clus))
+      clus.df <- merge(clus.df, freq.df, by.x="calledStart", by.y="Var1")
+    
+    #At this point, position and frequency could be used to look at distribution
+    #Currently, the logic uses the same as hiReadsProcessor::clusterSites(), which
+    #favors the highest frequency (likely most common). I've added a mean calculation
+    #for sites that are clustered together spanning greater than the windowSize, this
+    #should be looked at more closely with test data sets. Lastly, in the case of equivalent
+    #frequency and within the windowSize, the upstream position is prefered, as with previous
+    #functions. This clusterStart calling logic should be looked at more closely, with test
+    #data sets.
+    
+      top.freq <- clus.df[clus.df$Freq == max(clus.df$Freq),]
+      if(length(unique(top.freq$posID)) == 1){
+        clus.position <- unique(top.freq$calledStart)
+      }else if((range(top.freq$calledStart)[2] - range(top.freq$calledStart)[1]) > window.size){
+        message("Possible bimodal distribution of intSites in cluster ", i, ".")
+        clus.position <- as.integer(mean(top.freq$calledStart))
+      }else{
+        clus.position <- min(top.freq$calledStart)
+      }
+      clus.df$clusterStart <- clus.position
+      clus.df <- arrange(clus.df, readID)
+      mcols(clus) <- clus.df
+      clus$readID <- NULL
+      clus
+    })
+    sites.clus <- do.call(c, lapply(1:length(sites.clus), function(i){sites.clus[[i]]}))
+    ranges <- IRanges(start = ifelse(strand(sites.clus) == "+", 
+                                     sites.clus$clusterStart, sites.clus$sonicBreak),
+                      end = ifelse(strand(sites.clus) == "+",
+                                   sites.clus$sonicBreak, sites.clus$clusterStart))
+    sites.std <- GRanges(seqnames = seqnames(sites.clus),
+                         ranges = ranges,
+                         strand = strand(sites.clus),
+                         seqinfo = seqinfo(sites.clus))
+    if(keep.mcols){mcols(sites.std) <- mcols(sites.clus)}
+  
+    sites.std
+  })
+  sites.standardized <- do.call(c, lapply(1:length(sites.standardized), function(i){
+    sites.standardized[[i]]
+  }))
+  
+  sites.standardized
+}
 
 #intSiteStandardize, change name at some point
-intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE, 
+.intSiteStandardize <- function(sites, windowSize=5L, grouping=1, condense=FALSE, 
                                 pcrBreakpoints=FALSE, returnAbund=FALSE, 
                                 abundMethod="fragLen", keepMcols=FALSE, ...){
   
@@ -335,7 +406,7 @@ cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
   overlaps <- findOverlaps(condensed.sites, condensed.sites, maxgap = maxgap)
   edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
   
-  clusters <- clusters(graph.edgelist(edgelist, directed = FALSE)) #Why false directed?
+  clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
   clusters.names <- split(names(condensed.sites), clusters$membership)
   clusters.lengths <- data.frame(
     id = c(1:length(clusters.names)),
