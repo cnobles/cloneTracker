@@ -20,9 +20,9 @@ if(FALSE %in% dependancies_present){
 }
 
 #Source function scripts
-function_scripts <- c("cloneTracker.R", 
-                      "intSiteAbund.R", 
-                      "intSiteStandardize.R", 
+function_scripts <- c("track_clones.R", 
+                      "determine_abundance.R", 
+                      "standardize_intsites.R", 
                       "normalize_multihit_clusters.R")
 sapply(function_scripts, function(path){source(file = path)})
 
