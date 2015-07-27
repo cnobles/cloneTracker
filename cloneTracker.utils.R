@@ -23,28 +23,11 @@ if(FALSE %in% dependancies_present){
 function_scripts <- c("track_clones.R", 
                       "determine_abundance.R", 
                       "standardize_intsites.R", 
-                      "normalize_multihit_clusters.R")
+                      "normalize_multihit_clusters.R",
+                      "remove_repeats.R",
+                      "test_GRanges.R")
 sapply(function_scripts, function(path){source(file = path)})
 
-#Test GRange
-test <- GRanges(seqnames = Rle(values = c("chr1", "chr2", "chr3"),
-                               lengths = c(5, 10, 7)),
-                ranges = IRanges(start = c(2,7,10,7,8,15,15,17,16,14,14,6,7,6,5,2,5,8,11,14,17,20),
-                                 width = rep(30, 22)),
-                strand = Rle(values = c("+","-","+"),
-                             lengths = c(8,7,7)))
-
-#samples need to have PCR replicates removed to reduce the amount of work needed to be done
-intSiteDeamplify <- function(sites){
-  sites.df <- as.data.frame(sites)
-  sites.df <- distinct(sites.df)
-  ranges <- IRanges(start = sites.df$start, end = sites.df$end)
-  sites.deamp <- GRanges(seqnames = sites.df$seqnames,
-                         ranges = ranges,
-                         strand = sites.df$strand,
-                         seqinfo = seqinfo(sites))
-  sites.deamp
-}
 
 #Using a keep_cols list, remove unwanted metadata from GRanges
 condense_metadata <- function(sites, keep_cols){
