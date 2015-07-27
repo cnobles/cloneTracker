@@ -26,7 +26,7 @@ function_scripts <- c("track_clones.R",
                       "normalize_multihit_clusters.R",
                       "remove_repeats.R",
                       "test_GRanges.R")
-sapply(function_scripts, function(path){source(file = path)})
+sapply(function_scripts, function(path){source(file = paste0("functions/", path))})
 
 
 #Using a keep_cols list, remove unwanted metadata from GRanges
