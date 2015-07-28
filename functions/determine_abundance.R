@@ -1,5 +1,5 @@
 #requires dplyr::distinct and sonicLength::estAbund
-intSiteAbund <- function(sites, method="fragLen"){
+determine_abundance <- function(sites, method="fragLen"){
   sites$posID <- generate_posID(sites)
   mcols <- mcols(sites)
   mcols(sites) <- NULL

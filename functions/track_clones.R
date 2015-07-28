@@ -5,7 +5,7 @@
 #and that adding the variable ignore.self (or something like that)
 #which could reduce the length and demand of cloneTracker towards the end
 
-cloneTracker <- function(sites, maxgap=5L, track.origin=TRUE, ...){
+track_clones <- function(sites, maxgap=5L, track.origin=TRUE, ...){
   grl.sites <- sites
   
   if(class(sites) == "list"){grl.sites <- GRangesList(sites)}

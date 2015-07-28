@@ -1,4 +1,4 @@
-intSiteStandardize <- function(sites.unstandardized, window.size=5L, 
+standardize_intsites <- function(sites.unstandardized, window.size=5L, 
                                grouping=NULL, keep.mcols=FALSE, ...){
   sites.unstandardized <- sort(sites.unstandardized)
   if(is.null(grouping)){
