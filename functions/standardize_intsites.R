@@ -3,10 +3,11 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
   sites.unstandardized <- sort(sites.unstandardized)
   if(is.null(grouping)){
     sites.gp <- list(sites.unstandardized)
-  }else if(grouping %in% names(mcols(sites))){
+  }else if(grouping %in% names(mcols(sites.unstandardized))){
     groups <- mcols(sites.unstandardized)[
       grep(grouping, names(mcols(sites.unstandardized)))]
-    sites.gp <- split(sites, paste0("sites$", groups))
+    sites.unstandardized$groups <- groups[,1]
+    sites.gp <- split(sites.unstandardized, sites.unstandardized$groups)
   }else{
     stop("Grouping partitioning failed. Make sure grouping is either NULL or 
          refering to the correct column in GRanges object.")
