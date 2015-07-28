@@ -1,4 +1,4 @@
-db_to_GRanges <- function(dfr_from_db){
+db_to_GRanges <- function(dfr_from_db, keep.additional.columns = FALSE){
   dfr <- dfr_from_db
   ranges <- IRanges(start = ifelse(dfr$strand == "+", dfr$position, dfr$breakpoint),
                     end = ifelse(dfr$strand == "+", dfr$breakpoint, dfr$position))
@@ -15,6 +15,17 @@ db_to_GRanges <- function(dfr_from_db){
                       "refGenome" = dfr$refGenome,
                       "sex" = dfr$gender,
                       "miseqid" = dfr$miseqid)
+  
+  if(keep.additional.columns){
+    std.columns <- c("sampleID", "sampleName", "refGenome", "gender", "miseqid", 
+                     "siteID", "position", "chr", "strand", "breakpoint", "count")
+    are.there <- match(std.columns, colnames(dfr))
+    add.cols <- grep(TRUE, is.na(match(names(dfr), names(dfr[,are.there]))))
+    cols <- data.frame(dfr[, add.cols])
+    colnames(cols) <- colnames(dfr[add.cols])
+    mcols <- cbind(mcols, cols)
+  }
+  
   mcols(gr) <- mcols
   gr
 }
