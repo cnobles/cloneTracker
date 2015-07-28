@@ -27,8 +27,7 @@ function_scripts <- c("track_clones.R",
                       "determine_abundance.R", 
                       "standardize_intsites.R", 
                       "normalize_multihit_clusters.R",
-                      "remove_repeats.R",
-                      "test_GRanges.R")
+                      "remove_repeats.R")
 sapply(function_scripts, function(path){source(file = paste0("functions/", path))})
 
 setwd(workDir)
