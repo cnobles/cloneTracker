@@ -1,10 +1,10 @@
 normalize_multihit_clutsers <- function(multihit.gr, grouping = NULL){
   #Multihits must be standardized and have clusterID info
   if(is.null(grouping)){
-    multihits.gp <- list(multihit.gr)
-  }else if(grouping %in% names(mcols(multihit.gr))){
-    groups <- mcols(multihit.gr)[
-      grep(grouping, names(mcols(multihit.gr)))]
+    multihits.gp <- list(multihits.gr)
+  }else if(grouping %in% names(mcols(multihits.gr))){
+    groups <- mcols(multihits.gr)[
+      grep(grouping, names(mcols(multihits.gr)))]
     multihits.gr$groups <- groups[,1]
     multihits.gp <- split(multihits.gr, multihits.gr$groups)
   }else{
@@ -19,11 +19,11 @@ normalize_multihit_clutsers <- function(multihit.gr, grouping = NULL){
     clusterID_to_position <- data.frame("clusterID" = unique(key$clusterID), 
                                         "position" = seq(1:length(unique(key$clusterID))))
   
-    std.clusID <- merge(key, clusterID_to_position, by.x="clusterID", by.y="clusterID")
+    key <- merge(key, clusterID_to_position, by.x="clusterID", by.y="clusterID")
   
     multi.art.gr <- GRanges(seqnames = Rle("art_chr", nrow(key)),
                             ranges = IRanges(start = key$position, width = 1),
-                            strand = "*",
+                            strand = Rle("*", nrow(key)),
                             multihitID = key$multihitID,
                             clusterID = key$clusterID)
   
