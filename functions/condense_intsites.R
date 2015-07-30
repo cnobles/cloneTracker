@@ -4,7 +4,7 @@ condense_intsites <- function(sites_to_condense, grouping = NULL, return.abundan
   
   grp <- which(grouping == names(mcols))
   if(length(grp) != 0){
-    group <- mcols[,grp]
+    group <- as.character(mcols[,grp])
   }else{
     group <- rep("group1", length(sites_to_condense))
   }
@@ -33,12 +33,11 @@ condense_intsites <- function(sites_to_condense, grouping = NULL, return.abundan
   
     #Condense the reads with same standardized starts and remove breakpoint info
     #Wrapped by the collection of metadata columns
-    metacols <- bind_rows(lapply(condensed.sites, function(x){
-      as.data.frame(mcols(x[1]))
+    metacols <- do.call(rbind, lapply(condensed.sites, function(x){
+      mcols(x[1])
     }))
     condensed.sites <- unlist(reduce(flank(condensed.sites, -1, start=TRUE)))
-    mcols(condensed.sites) <- merge(as.data.frame(mcols(sites.reduced)),
-                                    metacols, by="posID")
+    mcols(condensed.sites) <- merge(mcols(sites.reduced), metacols, by="posID")
     condensed.sites
   })
   

@@ -6,14 +6,14 @@ determine_abundance <- function(sites, grouping=NULL, replicates="replicates", m
   
   grp <- which(grouping == names(mcols))
   if(length(grp) != 0){
-    group <- mcols[,grp]
+    group <- as.character(mcols[,grp])
   }else{
     group <- rep("group1", length(sites))
   }
   
   reps <- which(replicates == names(mcols))
   if(length(reps) != 0){
-    replicates <- mcols[,reps]
+    replicates <- as.character(mcols[,reps])
   }else{
     replicates <- rep("1", length(sites))
   }
