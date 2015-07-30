@@ -1,52 +1,47 @@
 #requires dplyr::distinct and sonicLength::estAbund
-determine_abundance <- function(sites, method="fragLen"){
+determine_abundance <- function(sites, grouping=NULL, replicates="replicates", method="fragLen"){
   sites$posID <- generate_posID(sites)
   mcols <- mcols(sites)
   mcols(sites) <- NULL
   
-  reps <- which("replicates" == names(mcols))
-  if(length(reps) != 0){
-    replicates <- mcols$replicates
+  grp <- which(grouping == names(mcols))
+  if(length(grp) != 0){
+    group <- mcols[,grp]
   }else{
-    replicates <- rep("group1", length(sites))
+    group <- rep("group1", length(sites))
   }
   
-  posID <- generate_posID(sites)
-  fragLen <- width(sites)
-  sites.dfr <- data.frame("posID"=posID, 
-                          "fragLen"=fragLen, 
-                          "replicates"=replicates)
+  reps <- which(replicates == names(mcols))
+  if(length(reps) != 0){
+    replicates <- mcols[,reps]
+  }else{
+    replicates <- rep("1", length(sites))
+  }
+  
+  sites.dfr <- data.frame("posID"= generate_posID(sites), 
+                          "fragLen"= width(sites), 
+                          "replicates"=replicates,
+                          "group"=group)
   
   if(method == "fragLen"){
-    abundCalc <- function(locations, fragLen, replicates){
-      if(length(unique(sites.dfr$replicates)) == 1){
-        locationID <- locations
-      }else{
-        locationID <- paste0(replicates, ":", locations)
-      }
-      
-      dfr <- data.frame("locationID"=locationID, "fragLen" = fragLen)
+    abundCalc <- function(locations, fragLen, replicates, group){
+      group <- unique(group)
+      dfr <- data.frame("locationID" = locations, 
+                        "fragLen" = fragLen,
+                        "replicates" = replicates)
       dfr_dist <- distinct(dfr)
       sites_list <- split(dfr_dist, dfr_dist$locationID)
       abundances <- sapply(sites_list, function(x){nrow(x)})
       abundances <- abundances[unique(dfr$locationID)]
       
-      if(length(unique(sites.dfr$replicates)) == 1){
-        posID <- names(abundances)
-        abund.dfr <- data.frame("posID" = posID,
-                                "estAbund" = abundances)
-      }else{
-        group_posID <- strsplit(names(abundances), split = ":")
-        group <- sapply(1:length(group_posID), function(i){group_posID[[i]][1]})
-        posID <- sapply(1:length(group_posID), function(i){group_posID[[i]][2]})
-        abund.dfr <- data.frame("posID" = posID,
-                                "estAbund" = abundances,
-                                "replicates" = group)
-      }
+      abund.dfr <- data.frame("posID" = names(abundances),
+                              "estAbund" = abundances,
+                              "group" = rep(group, length(abundances)))
       abund.dfr
     }
   }else if(method == "estAbund"){
-    abundCalc <- function(locations, fragLen, replicates=NULL){
+    abundCalc <- function(locations, fragLen, replicates, group){
+      group <- unique(group)
       if(length(unique(sites.dfr$replicates)) == 1){
         theta_list <- estAbund(locations=locations, lengths=fragLen)
       }else{
@@ -62,19 +57,27 @@ determine_abundance <- function(sites, method="fragLen"){
                                 "estAbund" = abundances,
                                 "replicates" = theta_list$data$replicates)
       }
+      abund.dfr$group <- group
       abund.dfr
     }
   }else{
     stop("Must choose either fragLen or estAbund for method.")
   }
   
-  abund.dfr <- abundCalc(locations = sites.dfr$posID,
-                         fragLen = sites.dfr$fragLen, 
-                         replicates = sites.dfr$replicates)
+  sites.list <- split(sites.dfr, sites.dfr$group)
   
-  abund.dfr$estAbund <- round(abund.dfr$estAbund)
-  abund.dfr$estAbundProp <- abund.dfr$estAbund/sum(abund.dfr$estAbund)
-  abund.dfr$estAbundRank <- rank(-1*abund.dfr$estAbundProp, ties.method="max")
-  rownames(abund.dfr) <- NULL
+  abund.list <- lapply(sites.list, function(x){
+    abundCalc(locations = x$posID,
+              fragLen = x$fragLen, 
+              replicates = x$replicates,
+              group = x$group)
+  })
+  
+  abund.dfr <- bind_rows(abund.list) %>%
+    mutate(estAbund = round(estAbund)) %>%
+    mutate(estAbundProp = estAbund/sum(estAbund)) %>%
+    mutate(estAbundRank = rank(-1*estAbundProp, ties.method="max"))
+    
+  abund.dfr <- abund.dfr[, c("posID", "group", "estAbund", "estAbundProp", "estAbundRank")]
   abund.dfr
 }

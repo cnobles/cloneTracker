@@ -89,6 +89,6 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
   sites.standardized <- do.call(c, lapply(1:length(sites.standardized), function(i){
     sites.standardized[[i]]
   }))
-  if(!is.na(grouping)){sites.standardized$groups <- NULL}
+  if(!is.null(grouping)){sites.standardized$groups <- NULL}
   sites.standardized
   }

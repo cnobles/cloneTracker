@@ -28,7 +28,8 @@ function_scripts <- c("track_clones.R",
                       "standardize_intsites.R", 
                       "normalize_multihit_clusters.R",
                       "remove_repeats.R",
-                      "db_to_GRanges.R")
+                      "db_to_GRanges.R",
+                      "condense_intsites.R")
 sapply(function_scripts, function(path){source(file = paste0("functions/", path))})
 
 setwd(workDir)
