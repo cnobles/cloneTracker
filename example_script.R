@@ -11,6 +11,6 @@ load("ex_Data/gr5.RData")
 grl <- GRangesList(gr1, gr2, gr3, gr4, gr5)
 names(grl) <- data_names
 
-grl <- lapply(grl, intSiteCollapse)
+grl <- lapply(grl, function(x){flank(x, -1, start = TRUE)})
 
-cloneList <- cloneTracker(grl)
+cloneList <- track_clones(grl)

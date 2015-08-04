@@ -19,8 +19,6 @@ if(FALSE %in% dependancies_present){
   message("Required packages loaded.")
 }
 
-workDir <- getwd()
-setwd(paste0(workDir, "/cloneTracker/"))
 
 #Source function scripts
 function_scripts <- c("track_clones.R", 
@@ -32,7 +30,6 @@ function_scripts <- c("track_clones.R",
                       "condense_intsites.R")
 sapply(function_scripts, function(path){source(file = paste0("functions/", path))})
 
-setwd(workDir)
 
 #Using a keep_cols list, remove unwanted metadata from GRanges
 condense_metadata <- function(sites, keep_cols){
