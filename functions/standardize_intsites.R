@@ -46,8 +46,8 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
         if(length(top.freq) == 1){
           clus.position <- unique(top.freq$calledStart)
         }else if((range(top.freq$calledStart)[2] - range(top.freq$calledStart)[1]) > window.size){
-          message("Possible bimodal distribution of intSites in cluster ", j, ":", i, ".")
-          clus.position <- as.integer(mean(top.freq$calledStart))
+          message("Possible bimodal distribution of intSites in cluster ", i, ":", j, ".")
+          clus.position <- as.integer(median(top.freq$calledStart))
         }else{
           clus.position <- min(top.freq$calledStart)
         }

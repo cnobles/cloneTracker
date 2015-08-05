@@ -74,10 +74,10 @@ determine_abundance <- function(sites, grouping=NULL, replicates=NULL, method="f
   })
   
   abund.dfr <- bind_rows(abund.list) %>%
-    mutate(estAbund = round(estAbund)) %>%
-    mutate(estAbundProp = estAbund/sum(estAbund)) %>%
-    mutate(estAbundRank = rank(-1*estAbundProp, ties.method="max"))
+    mutate(estAbund = round(estAbund)) #%>%
+    #mutate(estAbundProp = estAbund/sum(estAbund)) %>%
+    #mutate(estAbundRank = rank(-1*estAbundProp, ties.method="max"))
     
-  abund.dfr <- abund.dfr[, c("posID", "group", "estAbund", "estAbundProp", "estAbundRank")]
+  abund.dfr <- abund.dfr[, c("posID", "group", "estAbund")] #, "estAbundProp", "estAbundRank")]
   abund.dfr
 }

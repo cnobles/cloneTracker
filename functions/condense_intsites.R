@@ -9,36 +9,30 @@ condense_intsites <- function(sites_to_condense, grouping = NULL, return.abundan
     group <- rep("group1", length(sites_to_condense))
   }
   
-  sites_to_condense$group <- group
+  sites_to_condense$posID <- generate_posID(sites_to_condense)
+  sites_to_condense$groupID <- paste0(group, "^", sites_to_condense$posID)
   
-  sites.list <- split(sites_to_condense, sites_to_condense$group)
+  groupIDs <- unique(sites_to_condense$groupID)
+  first.hits <- match(groupIDs, sites_to_condense$groupID)
   
-  condensed.grl <- GRangesList(lapply(sites.list, function(sites){
-    sites <- flank(sites, -1, start = TRUE)
-    sites$posID <- generate_posID(sites) 
-    first.hit <- match(unique(sites$posID), sites$posID)
-    condensed.sites <- sites[first.hit]
-    condensed.sites
-  }))
-
-  condensed.gr <- unlist(condensed.grl)
+  condensed.gr <- flank(sites_to_condense, -1, start = TRUE)
+  condensed.gr <- condensed.gr[first.hits]
   
   if(return.abundance){
     abund.dfr <- determine_abundance(sites_to_condense, grouping = grouping, 
                                      replicates = replicates, method = method)
-    mcols <- as.data.frame(mcols(condensed.gr))
-    mcols.list <- split(mcols, mcols$group)
-    abund.list <- split(abund.dfr, abund.dfr$group)
-    mcols.list <- mcols.list[names(abund.list)]
-    all.cols <- bind_rows(lapply(1:length(mcols.list), function(i){
-      merge(mcols.list[[i]], abund.list[[i]], by="posID")
-    }))
-    order <- match(generate_posID(condensed.gr), all.cols$posID)
+    abund.dfr$groupID <- paste0(abund.dfr$group, "^", abund.dfr$posID)
+    mcols <- mcols(condensed.gr)
+    all.cols <- merge(mcols, abund.dfr, by = "groupID")
+    order <- match(condensed.gr$groupID, all.cols$groupID)
     all.cols <- all.cols[order,]
     mcols(condensed.gr) <- all.cols
-    condensed.gr$group.x <- NULL
-    condensed.gr$group.y <- NULL
+    condensed.gr$posID.x <- NULL
+    condensed.gr$posID.y <- NULL
+    condensed.gr$posID <- generate_posID(condensed.gr)
   }
+  condensed.gr$groupID <- NULL
+  condensed.gr$group <- NULL
   names(condensed.gr) <- NULL
   message("Check to make sure all metadata columns are still relavent.")
   condensed.gr
