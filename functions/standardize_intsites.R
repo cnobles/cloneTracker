@@ -30,7 +30,7 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
     if(length(clusters$membership) > 0){
       sites.rd$clusterID <- paste0(i, ":", clusters$membership)
       sites.rd <- split(sites.rd, sites.rd$clusterID)
-      sites.clus <- lapply(1:length(sites.rd), function(j){
+      sites.clus <- GRangesList(lapply(1:length(sites.rd), function(j){
         clus <- sites.rd[[j]]
         
         #At this point, position and frequency could be used to look at distribution
@@ -53,15 +53,15 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
         }
         clus$clusterStart <- clus.position
         clus
-      })
+      }))
     }else{
       message("No sites within window.size, no clustering needed")
       sites.rd$clusterID <- paste0(i, ":", seq(1:length(sites.rd)))
       sites.rd$clusterStart <- sites.rd$calledStart
-      sites.clus <- list(sites.rd)
+      sites.clus <- GRangesList(sites.rd)
     }
     
-    sites.clus <- do.call(c, lapply(1:length(sites.clus), function(i){sites.clus[[i]]}))
+    sites.clus <- unlist(sites.clus)
     
     sites.fl <- sites.fl[unlist(sites.clus$revmap)]
     sites.fl$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,

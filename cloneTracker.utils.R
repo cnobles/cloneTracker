@@ -67,6 +67,56 @@ generate_posID <- function(sites=NULL, seqnames=NULL, strand=NULL, start=NULL, e
   return(posID)
 }
 
+.cluster_by_cliqs <- function(sites, maxgap = 5L){
+  sites <- sort(sites)
+  sites <- remove_repeats(sites)
+  sites$called.pos <- ifelse(strand(sites) == "+", start(sites), end(sites))
+  sites$breakpoint <- ifelse(strand(sites) == "+", end(sites), start(sites))
+  sites <- flank(sites, -1, start = TRUE)
+  
+  graph.5L <- graphOverlaps(sites, maxgap = maxgap)
+  clusters.5L <- clusters(graph.5L)
+  
+  sites$cluster <- clusters.5L$membership
+  sites.grl <- split(sites, sites$cluster)
+  
+  clus.dfr <- bind_rows(lapply(1:length(sites.grl), function(i){
+    clus <- sites.grl[[i]]
+    graph.0L <- graphOverlaps(clus, maxgap = 0L)
+    clusters.0L <- clusters(graph.0L)
+    clus$freq <- as.numeric(Rle(clusters.0L$csize, clusters.0L$csize))
+    clus$cliq <- clusters.0L$membership
+    max.cliq <- largest.cliques(graph.0L)
+    if(length(max.cliq) > 1){
+      positions <- start(clus[unlist(max.cliq)])
+      clus.pos <- median(positions)
+    }else{
+      clus.pos <- start(clus[max.cliq[[1]][1]])
+    }
+    clus.i <- data.frame("cluster" = as.numeric(names(sites.grl[i])), 
+                         "clus.pos" = as.numeric(clus.pos))
+    clus.i
+  }))
+  
+  sites$clus.pos <- as.numeric(Rle(clus.dfr$clus.pos, clusters.5L$csize))
+  
+  ranges <- IRanges(start = ifelse(strand(sites) == "+", sites$clus.pos, sites$breakpoint),
+                    end = ifelse(strand(sites) == "+", sites$breakpoint, sites$clus.pos))
+  std.sites <- GRanges(seqnames = seqnames(sites),
+                       ranges = ranges,
+                       strand = strand(sites),
+                       seqinfo = seqinfo(sites))
+  mcols(std.sites) <- mcols(sites)
+  std.sites
+}
+
+graphOverlaps <- function(sites, maxgap){
+  overlaps <- findOverlaps(sites, maxgap = maxgap)
+  edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+  graph <- graph.edgelist(edgelist, directed = FALSE)
+  graph
+}
+
 #Difference between this function and flank(x, -1, start=TRUE) is neglegible
 .intSiteCollapse <- function(sites, use.names=FALSE){
   if(use.names == TRUE){if(length(names(sites)) == 0){
