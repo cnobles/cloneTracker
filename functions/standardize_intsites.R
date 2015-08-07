@@ -13,24 +13,26 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
          refering to the correct column in GRanges object.")
   }
   
-  sites.standardized <- lapply(1:length(sites.gp), function(i){
+  sites.std.grl <- GRangesList(lapply(1:length(sites.gp), function(i){
     sites <- sites.gp[[i]]
-    sites$sonicBreak <- ifelse(strand(sites) == "+", end(sites), start(sites))
+    sites$calledStart <- ifelse(strand(sites) == "+", start(sites), end(sites))
+    sites$breakpoint <- ifelse(strand(sites) == "+", end(sites), start(sites))
     
     #Manipulate ranges to only have unique starts (intSites), remove breakpoint and abundance info.
-    sites.fl <- flank(sites, width = -1, start = TRUE)
-    sites.rd <- reduce(sites.fl, min.gapwidth = 0L, with.revmap = TRUE)
+    sites <- flank(sites, width = -1, start = TRUE)
+    sites.rd <- reduce(sites, min.gapwidth = 0L, with.revmap = TRUE)
     sites.rd$calledStart <- ifelse(strand(sites.rd) == "+", start(sites.rd), end(sites.rd))
     sites.rd$freq <- sapply(sites.rd$revmap, length)
-    overlaps <- findOverlaps(sites.rd, maxgap = window.size, select = "all", 
-                             ignoreSelf = FALSE, ignoreRedundant = FALSE)
-    edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
-    clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
+    #overlaps <- findOverlaps(sites.rd, maxgap = window.size, select = "all", 
+    #                         ignoreSelf = FALSE, ignoreRedundant = FALSE)
+    #edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+    #clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
+    clusters <- clusters(graphOverlaps(sites.rd, maxgap = window.size))
     
     if(length(clusters$membership) > 0){
       sites.rd$clusterID <- paste0(i, ":", clusters$membership)
       sites.rd <- split(sites.rd, sites.rd$clusterID)
-      sites.clus <- GRangesList(lapply(1:length(sites.rd), function(j){
+      sites.grl <- GRangesList(lapply(1:length(sites.rd), function(j){
         clus <- sites.rd[[j]]
         
         #At this point, position and frequency could be used to look at distribution
@@ -58,26 +60,28 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
       message("No sites within window.size, no clustering needed")
       sites.rd$clusterID <- paste0(i, ":", seq(1:length(sites.rd)))
       sites.rd$clusterStart <- sites.rd$calledStart
-      sites.clus <- GRangesList(sites.rd)
+      sites.grl <- GRangesList(sites.rd)
     }
     
-    sites.clus <- unlist(sites.clus)
+    sites.clus <- unlist(sites.grl)
     
-    sites.fl <- sites.fl[unlist(sites.clus$revmap)]
-    sites.fl$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,
+    sites <- sites[unlist(sites.clus$revmap)]
+    sites$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,
                                             lengths = sites.clus$freq))
     
-    ranges <- IRanges(start = ifelse(strand(sites.fl) == "+", 
-                                     sites.fl$clusterStart, sites.fl$sonicBreak),
-                      end = ifelse(strand(sites.fl) == "+",
-                                   sites.fl$sonicBreak, sites.fl$clusterStart))
-    sites.std <- GRanges(seqnames = seqnames(sites.fl),
+    ranges <- IRanges(start = ifelse(strand(sites) == "+", 
+                                     sites$clusterStart, sites$breakpoint),
+                      end = ifelse(strand(sites) == "+",
+                                   sites$breakpoint, sites$clusterStart))
+    sites.std <- GRanges(seqnames = seqnames(sites),
                          ranges = ranges,
-                         strand = strand(sites.fl),
-                         seqinfo = seqinfo(sites.fl))
+                         strand = strand(sites),
+                         seqinfo = seqinfo(sites))
     
     if(keep.mcols){
       mcols(sites.std) <- mcols(sites[unlist(sites.clus$revmap)])
+      sites.std$calledStart <- as.integer(sites$calledStart)
+      sites.std$breakpoint <- as.integer(sites$breakpoint)
       sites.std$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,
                                                lengths = sites.clus$freq))
       sites.std$clusterID <- as.character(Rle(values = sites.clus$clusterID,
@@ -85,10 +89,8 @@ standardize_intsites <- function(sites.unstandardized, window.size=5L,
     }
     
     sites.std
-  })
-  sites.standardized <- do.call(c, lapply(1:length(sites.standardized), function(i){
-    sites.standardized[[i]]
   }))
+  sites.standardized <- unlist(sites.std.grl)
   if(!is.null(grouping)){sites.standardized$groups <- NULL}
   sites.standardized
-  }
+}

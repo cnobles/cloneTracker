@@ -1,4 +1,4 @@
-db_to_GRanges <- function(dfr_from_db, keep.additional.columns = FALSE){
+db_to_granges <- function(dfr_from_db, keep.additional.columns = FALSE){
   dfr <- dfr_from_db
   ranges <- IRanges(start = ifelse(dfr$strand == "+", dfr$position, dfr$breakpoint),
                     end = ifelse(dfr$strand == "+", dfr$breakpoint, dfr$position))
