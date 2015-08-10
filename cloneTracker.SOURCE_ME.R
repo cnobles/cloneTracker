@@ -21,14 +21,15 @@ if(FALSE %in% dependancies_present){
 
 
 #Source function scripts
-function_scripts <- c("track_clones.R", 
-                      "determine_abundance.R", 
-                      "standardize_intsites.R", 
-                      "normalize_multihit_clusters.R",
-                      "remove_repeats.R",
-                      "db_to_granges.R",
-                      "condense_intsites.R",
-                      "cloneTracker.utils.R",
-                      "ex_Data/test_GRanges.R")
-sapply(function_scripts, function(path){source(file = path)})
+function_scripts <- c("/track_clones.R", 
+                      "/determine_abundance.R", 
+                      "/standardize_intsites.R", 
+                      "/normalize_multihit_clusters.R",
+                      "/remove_repeats.R",
+                      "/db_to_granges.R",
+                      "/condense_intsites.R",
+                      "/cloneTracker.utils.R",
+                      "/ex_Data/test_GRanges.R")
+raw.script.url <- "https://raw.githubusercontent.com/cnobles/cloneTracker/master"
+sapply(function_scripts, function(path){source_url(paste0(raw.script.url, path))})
 message("cloneTracker functions loaded.")
