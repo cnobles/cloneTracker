@@ -23,10 +23,6 @@ standardize_intsites <- function(sites.unstandardized, maxgap=5L,
     sites.rd <- reduce(sites, min.gapwidth = 0L, with.revmap = TRUE)
     sites.rd$calledStart <- ifelse(strand(sites.rd) == "+", start(sites.rd), end(sites.rd))
     sites.rd$freq <- sapply(sites.rd$revmap, length)
-    #overlaps <- findOverlaps(sites.rd, maxgap = maxgap, select = "all", 
-    #                         ignoreSelf = FALSE, ignoreRedundant = FALSE)
-    #edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
-    #clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
     clusters <- clusters(graphOverlaps(sites.rd, maxgap = maxgap))
     
     if(length(clusters$membership) > 0){
