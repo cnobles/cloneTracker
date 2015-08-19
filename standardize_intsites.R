@@ -92,46 +92,47 @@ standardize_intsites <- function(sites.unstandardized, maxgap=5L,
 }
 
 
-standardize_by_clustering <- function(unstandardized.sites, standardize_breakpoints = TRUE, 
-                                      get.analysis.data = TRUE, calc.cluster.stats = TRUE){
+standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standardize_breakpoints = TRUE, 
+                                      get.analysis.data = FALSE, calc.cluster.stats = FALSE){
   #Build data.frame with called info and cluster information
   raw.sites <- unstandardized.sites
   raw.positions <- flank(granges(raw.sites), -1, start = TRUE)
   raw.breakpoints <- flank(granges(raw.sites), -1, start = FALSE)
-  raw.positions <- serial_cluster(raw.positions, maxgaps = c(1L, 5L))
-  raw.breakpoints <- serial_cluster(raw.breakpoints, maxgaps = c(1L))
+  raw.positions <- serial_cluster(raw.positions, maxgaps = c(std.gap))
+  raw.breakpoints <- serial_cluster(raw.breakpoints, maxgaps = c(std.gap))
   clus.dfr <- data.frame(
     "seqnames" = seqnames(raw.sites),
     "strand" = strand(raw.sites),
     "called.pos" = start(raw.positions),
     "called.bp" = end(raw.breakpoints),
-    "pos.clus.5L" = raw.positions$clus.5L,
-    "pos.clus.1L" = raw.positions$clus.1L,
-    "bp.clus.1L" = raw.breakpoints$clus.1L
-    )
+    "pos.clus" = as.character(as.data.frame(mcols(raw.positions))[,1]),
+    "bp.clus" = as.character(as.data.frame(mcols(raw.breakpoints))[,1]),
+    stringsAsFactors = FALSE)
   
   #Using the cluster membership for both ends of the reads, determine the
   #standardized membership for both ends
   #I should compare results, but I may not need to split this data up
-  bp.pos.clus <- lapply(unique(clus.dfr$bp.clus.1L), function(bp){
-    unique(clus.dfr[clus.dfr$bp.clus.1L == bp,]$pos.clus.1L)
+  bp.pos.clus <- lapply(unique(clus.dfr$bp.clus), function(bp){
+    unique(clus.dfr[clus.dfr$bp.clus == bp,]$pos.clus)
   })
-  pos.bp.clus <- lapply(unique(clus.dfr$pos.clus.1L), function(pos){
-    unique(clus.dfr[clus.dfr$pos.clus.1L == pos,]$bp.clus.1L)
+  names(bp.pos.clus) <- unique(clus.dfr$bp.clus)
+  pos.bp.clus <- lapply(unique(clus.dfr$pos.clus), function(pos){
+    unique(clus.dfr[clus.dfr$pos.clus == pos,]$bp.clus)
   })
-  pos.el <- as.matrix(bind_rows(lapply(unique(clus.dfr$pos.clus.1L), function(pos){
+  names(pos.bp.clus) <- unique(clus.dfr$pos.clus)
+  pos.el <- as.matrix(bind_rows(lapply(unique(clus.dfr$pos.clus), function(pos){
     bps <- pos.bp.clus[[pos]]
     subject <- unique(unlist(bp.pos.clus[bps]))
-    dfr <- data.frame("query.pos" = pos, "subject.pos" = subject)
+    dfr <- data.frame("query.pos" = pos, "subject.pos" = subject, stringsAsFactors = FALSE)
     dfr
   })), ncol = 2)
   pos.graph <- graph.edgelist(pos.el)
   adj.pos.clus <- clusters(pos.graph)$membership
-  clus.dfr$adj.pos.clus <- adj.pos.clus[clus.dfr$pos.clus.1L]
+  clus.dfr$adj.pos.clus <- adj.pos.clus[clus.dfr$pos.clus]
 
   #Determine the standardized position and breakpoints independently
   #Positions
-  pos.dfr <- clus.dfr[,c("seqnames", "strand","called.pos", "adj.pos.clus", "bp.clus.1L")]
+  pos.dfr <- clus.dfr[,c("seqnames", "strand","called.pos", "adj.pos.clus", "bp.clus")]
   pos.list <- split(pos.dfr, pos.dfr$adj.pos.clus)
   std.positions <- as.data.frame(bind_rows(lapply(pos.list, function(dfr){
     dfr <- distinct(dfr)
@@ -139,7 +140,8 @@ standardize_by_clustering <- function(unstandardized.sites, standardize_breakpoi
     top.freq <- as.numeric(as.character(pos.freq[pos.freq$Freq == max(pos.freq$Freq), "Var1"]))
     std.pos <- ifelse(unique(dfr$strand) == "+", min(top.freq), max(top.freq))
     adj.pos.clus.dfr <- data.frame("adj.pos.clus" = unique(dfr$adj.pos.clus), 
-                                   "std.pos" = as.integer(std.pos))
+                                   "std.pos" = as.integer(std.pos),
+                                   stringsAsFactors = FALSE)
     adj.pos.clus.dfr
   })))
   row.names(std.positions) <- std.positions$adj.pos.clus
@@ -147,19 +149,20 @@ standardize_by_clustering <- function(unstandardized.sites, standardize_breakpoi
   
   #Breakpoints (optional currently, only recommended on raw ranges or within a replicate, not across replicates or samples)
   if(standardize_breakpoints){
-    bp.dfr <- clus.dfr[,c("seqnames", "strand","called.bp", "adj.pos.clus", "bp.clus.1L")]
-    bp.list <- split(bp.dfr, bp.dfr$bp.clus.1L)
+    bp.dfr <- clus.dfr[,c("seqnames", "strand","called.bp", "adj.pos.clus", "bp.clus")]
+    bp.list <- split(bp.dfr, bp.dfr$bp.clus)
     std.breakpoints <- as.data.frame(bind_rows(lapply(bp.list, function(dfr){
       dfr <- distinct(dfr)
       bp.freq <- as.data.frame(table(dfr$called.bp))
       top.freq <- as.numeric(as.character(bp.freq[bp.freq$Freq == max(bp.freq$Freq), "Var1"]))
       std.bp <- ifelse(unique(dfr$strand) == "+", max(top.freq), min(top.freq))
-      adj.bp.clus.dfr <- data.frame("adj.bp.clus" = unique(dfr$bp.clus.1L), 
-                                    "std.bp" = as.integer(std.bp))
+      adj.bp.clus.dfr <- data.frame("adj.bp.clus" = unique(dfr$bp.clus), 
+                                    "std.bp" = as.integer(std.bp),
+                                    stringsAsFactors = FALSE)
       adj.bp.clus.dfr
     })))
     row.names(std.breakpoints) <- std.breakpoints$adj.bp.clus
-    clus.dfr$std.bp <- std.breakpoints[clus.dfr$bp.clus.1L, "std.bp"]
+    clus.dfr$std.bp <- std.breakpoints[clus.dfr$bp.clus, "std.bp"]
   }else{
     clus.dfr$std.bp <- clus.dfr$called.bp
   }
@@ -176,9 +179,9 @@ standardize_by_clustering <- function(unstandardized.sites, standardize_breakpoi
   if(get.analysis.data){
     std.sites$called.pos <- clus.dfr$called.pos
     std.sites$called.bp <- clus.dfr$called.bp
-    std.sites$pos.clus.ori <- clus.dfr$pos.clus.1L
+    std.sites$pos.clus.ori <- clus.dfr$pos.clus
     std.sites$pos.clus.adj <- clus.dfr$adj.pos.clus
-    std.sites$bp.clus <- clus.dfr$bp.clus.1L
+    std.sites$bp.clus <- clus.dfr$bp.clus
   }
   
   if(calc.cluster.stats){
@@ -186,7 +189,7 @@ standardize_by_clustering <- function(unstandardized.sites, standardize_breakpoi
     clus.stats <- as.data.frame(bind_rows(lapply(clus.list, function(clus){
       bp.range.diff <- diff(range(clus$called.bp))
       bp.ori.count <- length(unique(clus$called.bp))
-      bp.clus.count <- length(unique(clus$bp.clus.1L))
+      bp.clus.count <- length(unique(clus$bp.clus))
       bp.mean.diff <- ifelse(nrow(clus) > 1, mean(diff(clus$called.bp)), 0)
       stats.dfr <- data.frame(bp.range.diff, bp.ori.count, 
                               bp.clus.count, bp.mean.diff)
