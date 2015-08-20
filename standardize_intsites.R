@@ -1,99 +1,10 @@
-standardize_intsites <- function(sites.unstandardized, maxgap=5L, 
-                               grouping=NULL, keep.mcols=FALSE, ...){
-  sites.unstandardized <- sort(sites.unstandardized)
-  if(is.null(grouping)){
-    sites.gp <- list(sites.unstandardized)
-  }else if(grouping %in% names(mcols(sites.unstandardized))){
-    groups <- mcols(sites.unstandardized)[
-      grep(grouping, names(mcols(sites.unstandardized)))]
-    sites.unstandardized$groups <- groups[,1]
-    sites.gp <- split(sites.unstandardized, sites.unstandardized$groups)
-  }else{
-    stop("Grouping partitioning failed. Make sure grouping is either NULL or 
-         refering to the correct column in GRanges object.")
-  }
+standardize_intsites <- function(unstandardized.sites, 
+                                 std.gap = 1L, 
+                                 standardize_breakpoints = TRUE, 
+                                 get.analysis.data = FALSE, 
+                                 calc.cluster.stats = FALSE
+                                 ){
   
-  sites.std.grl <- GRangesList(lapply(1:length(sites.gp), function(i){
-    sites <- sites.gp[[i]]
-    sites$calledStart <- ifelse(strand(sites) == "+", start(sites), end(sites))
-    sites$breakpoint <- ifelse(strand(sites) == "+", end(sites), start(sites))
-    
-    #Manipulate ranges to only have unique starts (intSites), remove breakpoint and abundance info.
-    sites <- flank(sites, width = -1, start = TRUE)
-    sites.rd <- reduce(sites, min.gapwidth = 0L, with.revmap = TRUE)
-    sites.rd$calledStart <- ifelse(strand(sites.rd) == "+", start(sites.rd), end(sites.rd))
-    sites.rd$freq <- sapply(sites.rd$revmap, length)
-    clusters <- clusters(graphOverlaps(sites.rd, maxgap = maxgap))
-    
-    if(length(clusters$membership) > 0){
-      sites.rd$clusterID <- paste0(i, ":", clusters$membership)
-      sites.rd <- split(sites.rd, sites.rd$clusterID)
-      sites.grl <- GRangesList(lapply(1:length(sites.rd), function(j){
-        clus <- sites.rd[[j]]
-        
-        #At this point, position and frequency could be used to look at distribution
-        #Currently, the logic uses the same as hiReadsProcessor::clusterSites(), which
-        #favors the highest frequency (likely most common). I've added a mean calculation
-        #for sites that are clustered together spanning greater than the windowSize, this
-        #should be looked at more closely with test data sets. Lastly, in the case of equivalent
-        #frequency and within the windowSize, the upstream position is prefered, as with previous
-        #functions. This clusterStart calling logic should be looked at more closely, with test
-        #data sets.
-        
-        top.freq <- clus[clus$freq == max(clus$freq),]
-        if(length(top.freq) == 1){
-          clus.position <- unique(top.freq$calledStart)
-        }else if((range(top.freq$calledStart)[2] - range(top.freq$calledStart)[1]) > maxgap){
-          message("Possible bimodal distribution of intSites in cluster ", i, ":", j, ".")
-          clus.position <- as.integer(median(top.freq$calledStart))
-        }else{
-          clus.position <- min(top.freq$calledStart)
-        }
-        clus$clusterStart <- clus.position
-        clus
-      }))
-    }else{
-      message("No sites within maxgap distance, no clustering needed")
-      sites.rd$clusterID <- paste0(i, ":", seq(1:length(sites.rd)))
-      sites.rd$clusterStart <- sites.rd$calledStart
-      sites.grl <- GRangesList(sites.rd)
-    }
-    
-    sites.clus <- unlist(sites.grl)
-    
-    sites <- sites[unlist(sites.clus$revmap)]
-    sites$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,
-                                            lengths = sites.clus$freq))
-    
-    ranges <- IRanges(start = ifelse(strand(sites) == "+", 
-                                     sites$clusterStart, sites$breakpoint),
-                      end = ifelse(strand(sites) == "+",
-                                   sites$breakpoint, sites$clusterStart))
-    sites.std <- GRanges(seqnames = seqnames(sites),
-                         ranges = ranges,
-                         strand = strand(sites),
-                         seqinfo = seqinfo(sites))
-    
-    if(keep.mcols){
-      mcols(sites.std) <- mcols(sites[unlist(sites.clus$revmap)])
-      sites.std$calledStart <- as.integer(sites$calledStart)
-      sites.std$breakpoint <- as.integer(sites$breakpoint)
-      sites.std$clusterStart <- as.integer(Rle(values = sites.clus$clusterStart,
-                                               lengths = sites.clus$freq))
-      sites.std$clusterID <- as.character(Rle(values = sites.clus$clusterID,
-                                              lengths = sites.clus$freq))
-    }
-    
-    sites.std
-  }))
-  sites.standardized <- unlist(sites.std.grl)
-  if(!is.null(grouping)){sites.standardized$groups <- NULL}
-  sites.standardized
-}
-
-
-standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standardize_breakpoints = TRUE, 
-                                      get.analysis.data = FALSE, calc.cluster.stats = FALSE){
   #Build data.frame with called info and cluster information
   raw.sites <- unstandardized.sites
   raw.positions <- flank(granges(raw.sites), -1, start = TRUE)
@@ -111,7 +22,6 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
   
   #Using the cluster membership for both ends of the reads, determine the
   #standardized membership for both ends
-  #I should compare results, but I may not need to split this data up
   bp.pos.clus <- lapply(unique(clus.dfr$bp.clus), function(bp){
     unique(clus.dfr[clus.dfr$bp.clus == bp,]$pos.clus)
   })
@@ -123,7 +33,10 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
   pos.el <- as.matrix(bind_rows(lapply(unique(clus.dfr$pos.clus), function(pos){
     bps <- pos.bp.clus[[pos]]
     subject <- unique(unlist(bp.pos.clus[bps]))
-    dfr <- data.frame("query.pos" = pos, "subject.pos" = subject, stringsAsFactors = FALSE)
+    dfr <- data.frame("query.pos" = pos, 
+                      "subject.pos" = subject, 
+                      stringsAsFactors = FALSE
+                      )
     dfr
   })), ncol = 2)
   pos.graph <- graph.edgelist(pos.el)
@@ -132,12 +45,15 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
 
   #Determine the standardized position and breakpoints independently
   #Positions
-  pos.dfr <- clus.dfr[,c("seqnames", "strand","called.pos", "adj.pos.clus", "bp.clus")]
+  pos.dfr <- clus.dfr[,c("seqnames", "strand","called.pos", 
+                         "adj.pos.clus", "bp.clus")]
   pos.list <- split(pos.dfr, pos.dfr$adj.pos.clus)
   std.positions <- as.data.frame(bind_rows(lapply(pos.list, function(dfr){
     dfr <- distinct(dfr)
     pos.freq <- as.data.frame(table(dfr$called.pos))
-    top.freq <- as.numeric(as.character(pos.freq[pos.freq$Freq == max(pos.freq$Freq), "Var1"]))
+    top.freq <- as.numeric(as.character(
+      pos.freq[pos.freq$Freq == max(pos.freq$Freq), "Var1"]
+      ))
     std.pos <- ifelse(unique(dfr$strand) == "+", min(top.freq), max(top.freq))
     adj.pos.clus.dfr <- data.frame("adj.pos.clus" = unique(dfr$adj.pos.clus), 
                                    "std.pos" = as.integer(std.pos),
@@ -147,14 +63,18 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
   row.names(std.positions) <- std.positions$adj.pos.clus
   clus.dfr$std.pos <- std.positions[clus.dfr$adj.pos.clus, "std.pos"]
   
-  #Breakpoints (optional currently, only recommended on raw ranges or within a replicate, not across replicates or samples)
+  #Breakpoints (optional currently, only recommended on raw ranges or within a 
+  #replicate, not across replicates or samples)
   if(standardize_breakpoints){
-    bp.dfr <- clus.dfr[,c("seqnames", "strand","called.bp", "adj.pos.clus", "bp.clus")]
+    bp.dfr <- clus.dfr[,c("seqnames", "strand","called.bp", 
+                          "adj.pos.clus", "bp.clus")]
     bp.list <- split(bp.dfr, bp.dfr$bp.clus)
     std.breakpoints <- as.data.frame(bind_rows(lapply(bp.list, function(dfr){
       dfr <- distinct(dfr)
       bp.freq <- as.data.frame(table(dfr$called.bp))
-      top.freq <- as.numeric(as.character(bp.freq[bp.freq$Freq == max(bp.freq$Freq), "Var1"]))
+      top.freq <- as.numeric(as.character(
+        bp.freq[bp.freq$Freq == max(bp.freq$Freq), "Var1"]
+        ))
       std.bp <- ifelse(unique(dfr$strand) == "+", max(top.freq), min(top.freq))
       adj.bp.clus.dfr <- data.frame("adj.bp.clus" = unique(dfr$bp.clus), 
                                     "std.bp" = as.integer(std.bp),
@@ -168,8 +88,10 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
   }
   
   #Rebuild Granges of standardized sites
-  std.ranges <- IRanges(start = ifelse(clus.dfr$strand == "+", clus.dfr$std.pos, clus.dfr$std.bp),
-                        end = ifelse(clus.dfr$strand == "+", clus.dfr$std.bp, clus.dfr$std.pos))
+  std.ranges <- IRanges(start = ifelse(clus.dfr$strand == "+", 
+                                       clus.dfr$std.pos, clus.dfr$std.bp),
+                        end = ifelse(clus.dfr$strand == "+", 
+                                     clus.dfr$std.bp, clus.dfr$std.pos))
   std.sites <- GRanges(seqnames = clus.dfr$seqnames,
                        ranges = std.ranges,
                        strand = clus.dfr$strand,
@@ -206,56 +128,3 @@ standardize_by_clustering <- function(unstandardized.sites, std.gap = 1L, standa
   
   return(std.sites)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
