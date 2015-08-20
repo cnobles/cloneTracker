@@ -8,7 +8,7 @@ db_to_granges <- function(dfr_from_db, keep.additional.columns = FALSE){
   
   GTSP.list <- strsplit(dfr$sampleName, split="-")
   mcols <- data.frame("sampleName" = dfr$sampleName,
-                      "GTSP" = sapply(1:length(gr), function(i){GTSP.list[[i]][1]})
+                      "GTSP" = sapply(1:length(gr), function(i){GTSP.list[[i]][1]}),
                       stringAsFactors = FALSE)
   
   if(keep.additional.columns){
