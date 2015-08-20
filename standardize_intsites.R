@@ -9,8 +9,8 @@ standardize_intsites <- function(unstandardized.sites,
   raw.sites <- unstandardized.sites
   raw.positions <- flank(granges(raw.sites), -1, start = TRUE)
   raw.breakpoints <- flank(granges(raw.sites), -1, start = FALSE)
-  raw.positions <- serial_cluster(raw.positions, maxgaps = c(std.gap))
-  raw.breakpoints <- serial_cluster(raw.breakpoints, maxgaps = c(std.gap))
+  raw.positions <- serial_cluster(raw.positions, gaps = c(std.gap))
+  raw.breakpoints <- serial_cluster(raw.breakpoints, gaps = c(std.gap))
   clus.dfr <- data.frame(
     "seqnames" = seqnames(raw.sites),
     "strand" = strand(raw.sites),

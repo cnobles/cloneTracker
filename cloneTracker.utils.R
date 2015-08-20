@@ -45,8 +45,8 @@ generate_posID <- function(sites=NULL, seqnames=NULL, strand=NULL, start=NULL, e
 
 
 #Generate graph of overlaping (determined by maxgap size) GRange observations
-graphOverlaps <- function(sites, maxgap){
-  overlaps <- findOverlaps(sites, maxgap = maxgap)
+graphOverlaps <- function(sites, gap){
+  overlaps <- findOverlaps(sites, maxgap = gap)
   edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
   graph <- graph.edgelist(edgelist, directed = FALSE)
   graph
@@ -63,51 +63,6 @@ find_sites <- function(sites, posID){
 
 
 #Developmental functions, not currently used
-.cluster_by_cliqs <- function(sites, maxgap = 5L){
-  sites <- sort(sites)
-  sites <- remove_repeats(sites)
-  sites$called.pos <- ifelse(strand(sites) == "+", start(sites), end(sites))
-  sites$breakpoint <- ifelse(strand(sites) == "+", end(sites), start(sites))
-  sites <- flank(sites, -1, start = TRUE)
-  
-  graph.5L <- graphOverlaps(sites, maxgap = maxgap)
-  clusters.5L <- clusters(graph.5L)
-  
-  sites$cluster <- clusters.5L$membership
-  sites.grl <- split(sites, sites$cluster)
-  
-  clus.dfr <- bind_rows(lapply(1:length(sites.grl), function(i){
-    clus <- sites.grl[[i]]
-    graph.0L <- graphOverlaps(clus, maxgap = 0L)
-    clusters.0L <- clusters(graph.0L)
-    clus$freq <- as.numeric(Rle(clusters.0L$csize, clusters.0L$csize))
-    clus$cliq <- clusters.0L$membership
-    max.cliq <- largest.cliques(graph.0L)
-    if(length(max.cliq) > 1){
-      positions <- start(clus[unlist(max.cliq)])
-      clus.pos <- median(positions)
-    }else{
-      clus.pos <- start(clus[max.cliq[[1]][1]])
-    }
-    clus.i <- data.frame("cluster" = as.numeric(names(sites.grl[i])), 
-                         "clus.pos" = as.numeric(clus.pos))
-    clus.i
-  }))
-  
-  sites$clus.pos <- as.numeric(Rle(clus.dfr$clus.pos, clusters.5L$csize))
-  
-  ranges <- IRanges(start = ifelse(strand(sites) == "+", sites$clus.pos, sites$breakpoint),
-                    end = ifelse(strand(sites) == "+", sites$breakpoint, sites$clus.pos))
-  std.sites <- GRanges(seqnames = seqnames(sites),
-                       ranges = ranges,
-                       strand = strand(sites),
-                       seqinfo = seqinfo(sites))
-  mcols(std.sites) <- mcols(sites)
-  std.sites
-}
-
-
-
 #Difference between this function and flank(x, -1, start=TRUE) is neglegible
 .intSiteCollapse <- function(sites, use.names=FALSE){
   if(use.names == TRUE){if(length(names(sites)) == 0){
@@ -156,7 +111,7 @@ find_sites <- function(sites, posID){
   return(sites.clustered)
 }
 
-.standardize_by_overlaps <- function(sites.unstandardized, maxgap=5L, 
+.standardize_by_overlaps <- function(sites.unstandardized, gap=5L, 
                                  grouping=NULL, keep.mcols=FALSE, ...){
   sites.unstandardized <- sort(sites.unstandardized)
   if(is.null(grouping)){
@@ -181,7 +136,7 @@ find_sites <- function(sites, posID){
     sites.rd <- reduce(sites, min.gapwidth = 0L, with.revmap = TRUE)
     sites.rd$calledStart <- ifelse(strand(sites.rd) == "+", start(sites.rd), end(sites.rd))
     sites.rd$freq <- sapply(sites.rd$revmap, length)
-    clusters <- clusters(graphOverlaps(sites.rd, maxgap = maxgap))
+    clusters <- clusters(graphOverlaps(sites.rd, gap = gap))
     
     if(length(clusters$membership) > 0){
       sites.rd$clusterID <- paste0(i, ":", clusters$membership)
@@ -201,7 +156,7 @@ find_sites <- function(sites, posID){
         top.freq <- clus[clus$freq == max(clus$freq),]
         if(length(top.freq) == 1){
           clus.position <- unique(top.freq$calledStart)
-        }else if((range(top.freq$calledStart)[2] - range(top.freq$calledStart)[1]) > maxgap){
+        }else if((range(top.freq$calledStart)[2] - range(top.freq$calledStart)[1]) > gap){
           message("Possible bimodal distribution of intSites in cluster ", i, ":", j, ".")
           clus.position <- as.integer(median(top.freq$calledStart))
         }else{
@@ -211,7 +166,7 @@ find_sites <- function(sites, posID){
         clus
       }))
     }else{
-      message("No sites within maxgap distance, no clustering needed")
+      message("No sites within gap distance, no clustering needed")
       sites.rd$clusterID <- paste0(i, ":", seq(1:length(sites.rd)))
       sites.rd$clusterStart <- sites.rd$calledStart
       sites.grl <- GRangesList(sites.rd)
