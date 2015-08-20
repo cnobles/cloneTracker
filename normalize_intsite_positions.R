@@ -1,16 +1,23 @@
 #Normalize the position of integration sites between repliates and samples
 normalize_intsite_positions <- function(sites, gap = 5L){
+  sites$order <- 1:length(sites)
+  mcols <- mcols(sites)
+  mcols(sites) <- NULL
+  sites$order <- 1:length(sites)
   sites$called.pos <- ifelse(strand(sites) == "+", start(sites), end(sites))
+  mcols$called.pos <- ifelse(strand(sites) == "+", start(sites), end(sites))
   sites$called.bp <- ifelse(strand(sites) == "+", end(sites), start(sites))
+  mcols$called.bp <- ifelse(strand(sites) == "+", end(sites), start(sites))
   sites <- flank(sites, -1, start = TRUE)
   
   graph.gap <- graphOverlaps(sites, gap = gap)
   clusters.gap <- clusters(graph.gap)
-  key.gap <- data.frame("clus" = seq(1:clusters.gap$no),
-                        "size" = clusters.gap$csize)
   clusters_to_normalize <- grep(TRUE, clusters.gap$csize > 1)
   
   sites$clus <- clusters.gap$membership
+  mcols$clus <- clusters.gap$membership
+  
+  unnorm.sites <- sites[grep(TRUE, !sites$clus %in% clusters_to_normalize)]
   norm.sites <- sites[grep(TRUE, sites$clus %in% clusters_to_normalize)]
   
   norm.sites <- unlist(GRangesList(lapply(unique(norm.sites$clus), function(clus){
@@ -35,11 +42,19 @@ normalize_intsite_positions <- function(sites, gap = 5L){
                        ranges = ranges,
                        strand = strand(norm.sites),
                        seqinfo = seqinfo(norm.sites))
-  normalized.sites$called.pos <- norm.sites$called.pos
-  normalized.sites$called.bp <- norm.sites$called.bp
-  normalized.sites$clus <- norm.sites$clus
-  normalized.sites <- c(normalized.sites, 
-                        sites[!sites$clus %in% clusters_to_normalize])
-  normalized.sites <- sort(normalized.sites)
+  
+  normalized.sites$order <- norm.sites$order
+  unnorm.sites$called.pos <- NULL
+  unnorm.sites$called.bp <- NULL
+  unnorm.sites$clus <- NULL
+  normalized.sites <- c(normalized.sites, unnorm.sites)
+  
+  mcols <- as.data.frame(mcols, row.names = mcols$order)[normalized.sites$order,]
+  mcols(normalized.sites) <- mcols
+  normalized.sites <- unlist(GRangesList(sapply(1:length(normalized.sites),
+                                                function(i){
+                                                  normalized.sites[normalized.sites$order == i]
+                                                })))
+  normalized.sites$order <- NULL
   normalized.sites
 }
