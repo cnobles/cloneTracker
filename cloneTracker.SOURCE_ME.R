@@ -34,3 +34,4 @@ function_scripts <- c("/track_clones.R",
 raw.script.url <- "https://raw.githubusercontent.com/cnobles/cloneTracker/master"
 sapply(function_scripts, function(path){source_url(paste0(raw.script.url, path))})
 message("cloneTracker functions loaded.")
+rm(raw.script.url, function_scripts)
