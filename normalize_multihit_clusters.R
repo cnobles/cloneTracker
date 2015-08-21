@@ -1,4 +1,4 @@
-normalize_multihit_clutsers <- function(multihit.gr, grouping = NULL){
+normalize_multihit_clutsers <- function(multihits.gr, grouping = NULL){
   #Multihits must be standardized and have clusterID info
   if(is.null(grouping)){
     multihits.gp <- list(multihits.gr)
