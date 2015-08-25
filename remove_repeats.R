@@ -10,7 +10,7 @@ remove_repeats <- function(sites, mcols.to.keep = NULL){
   }}
   
   mcols(sites) <- NULL
-  sites.df <- as.data.frame(sites)
+  sites.df <- as.data.frame(sites, row.names = NULL)
   sites.df <- distinct(sites.df)
   ranges <- IRanges(start = sites.df$start, end = sites.df$end)
   sites.deamp <- GRanges(seqnames = sites.df$seqnames,

@@ -1,4 +1,4 @@
-normalize_multihit_clutsers <- function(multihit.gr, grouping = NULL){
+normalize_multihit_clutsers <- function(multihits.gr, grouping = NULL){
   #Multihits must be standardized and have clusterID info
   if(is.null(grouping)){
     multihits.gp <- list(multihits.gr)
@@ -14,7 +14,7 @@ normalize_multihit_clutsers <- function(multihit.gr, grouping = NULL){
   
   std.multi.gr <- lapply(multihits.gp, function(gr){
     key <- data.frame("multihitID" = gr$multihitID,
-                      "clusterID" = as.character(gr$clusterID)) 
+                      "clusterID" = as.character(gr$pos.clus)) 
   
     clusterID_to_position <- data.frame("clusterID" = unique(key$clusterID), 
                                         "position" = seq(1:length(unique(key$clusterID))))
