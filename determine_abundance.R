@@ -80,11 +80,11 @@ determine_abundance <- function(sites, grouping=NULL, replicates=NULL, method="f
   
   abund.dfr <- bind_rows(abund.list) %>%
     mutate(estAbund = round(estAbund)) %>%
-    mutate(relAbund = estAbund/totalAbund) #%>%
-    #mutate(estAbundRank = rank(-1*estAbundProp, ties.method="max"))
+    mutate(relAbund = estAbund/totalAbund) %>%
+    mutate(estAbundRank = rank(-1*estAbundProp, ties.method="max"))
   
   abund.dfr$totalAbund <- NULL
     
-  abund.dfr <- abund.dfr[, c("posID", "group", "estAbund", "relAbund")] #, "estAbundRank")]
+  abund.dfr <- abund.dfr[, c("posID", "group", "estAbund", "relAbund", "estAbundRank")]
   abund.dfr
 }
