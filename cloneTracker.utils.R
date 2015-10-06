@@ -350,6 +350,14 @@ find_sites <- function(sites, posID){
   if( ! length(unstandardizedSites) > 0){
     return(unstandardizedSites)
   }
+  
+  if(!exists("clusterSites")){
+    require(devtools)
+    hiReadsProcessor.url <- "https://raw.githubusercontent.com/BushmanLab/intSiteCaller/master/hiReadsProcessor.R"
+    source_url(hiReadsProcessor.url)
+    rm(hiReadsProcessor.url)
+  }
+  
   #Get called start values for clustering  
   unstandardizedSites$Position <- ifelse(strand(unstandardizedSites) == "+", start(unstandardizedSites), end(unstandardizedSites))
   unstandardizedSites$Break <- ifelse(strand(unstandardizedSites) == "+", end(unstandardizedSites), start(unstandardizedSites))
