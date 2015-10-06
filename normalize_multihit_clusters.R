@@ -49,6 +49,6 @@ normalize_multihit_clutsers <- function(multihits.gr, grouping = NULL){
   })
   
   std.multi.gr <- do.call(c, lapply(1:length(std.multi.gr), function(i){std.multi.gr[[i]]}))
-  if(!is.na(grouping)){std.multi.gr$groups <- NULL}
+  if(!is.null(grouping)){std.multi.gr$groups <- NULL}
   std.multi.gr
 }
