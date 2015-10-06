@@ -352,8 +352,8 @@ find_sites <- function(sites, posID){
   }
   
   if(!exists("clusterSites")){
-    require(devtools)
-    require(BiocParallel)
+    library(devtools)
+    library(BiocParallel)
     hiReadsProcessor.url <- "https://raw.githubusercontent.com/BushmanLab/intSiteCaller/master/hiReadsProcessor.R"
     source_url(hiReadsProcessor.url)
     rm(hiReadsProcessor.url)

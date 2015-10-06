@@ -1,7 +1,7 @@
 normalize_multihit_clutsers <- function(multihits.gr, grouping = NULL){
   #Multihits must be standardized and have clusterID info
   if(is.null(grouping)){
-    multihits.gp <- list(multihits.gr)
+    multihits.gp <- GRangesList(multihits.gr)
   }else if(grouping %in% names(mcols(multihits.gr))){
     groups <- mcols(multihits.gr)[
       grep(grouping, names(mcols(multihits.gr)))]
