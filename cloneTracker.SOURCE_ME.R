@@ -1,5 +1,5 @@
 #Dependancies check, if required packages are not loaded, script is haulted
-dependancies <- c("dplyr", "IRanges", "GenomicRanges", "igraph", "devtools")
+dependancies <- c("plyr", "dplyr", "IRanges", "GenomicRanges", "igraph", "devtools")
 
 sapply(dependancies, function(package){
   library(package, character.only = TRUE)})
