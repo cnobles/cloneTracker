@@ -49,7 +49,7 @@ standardize_intsites <- function(unstandardized.sites,
                          "adj.pos.clus", "bp.clus")]
   pos.list <- split(pos.dfr, pos.dfr$adj.pos.clus)
   std.positions <- as.data.frame(bind_rows(lapply(pos.list, function(dfr){
-    dfr <- distinct(dfr)
+    dfr <- unique(dfr)
     pos.freq <- as.data.frame(table(dfr$called.pos))
     top.freq <- as.numeric(as.character(
       pos.freq[pos.freq$Freq == max(pos.freq$Freq), "Var1"]
