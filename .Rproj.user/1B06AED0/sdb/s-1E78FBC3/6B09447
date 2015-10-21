@@ -1,0 +1,18 @@
+{
+    "contents" : "source(\"cloneTracker.SOURCE_ME.R\")\nload(\"../../../Desktop/rawSites.RData\")\n\nsites <- clean_sites(allSites)\n\n",
+    "created" : 1445427864300.000,
+    "dirty" : true,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "3209699487",
+    "id" : "6B09447",
+    "lastKnownWriteTime" : 7011605692497750387,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "type" : "r_source"
+}
