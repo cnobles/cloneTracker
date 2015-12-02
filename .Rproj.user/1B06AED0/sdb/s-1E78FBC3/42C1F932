@@ -1,0 +1,17 @@
+{
+    "contents" : "#Test GRange\ntest <- GRanges(seqnames = Rle(values = c(\"chr3\"),\n                               lengths = c(15)),\n                ranges = IRanges(start = c(rep(6,10),rep(7,3),8,10),\n                                 end = c(25,20,25,25,24,20,19,30,30,25,24,24,20,29,23)),\n                strand = Rle(values = c(\"+\"),\n                             lengths = c(15)))\n",
+    "created" : 1445429280636.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1535741032",
+    "id" : "42C1F932",
+    "lastKnownWriteTime" : 1445429854,
+    "path" : "~/GitHub/cloneTracker/ex_Data/test_GRanges.R",
+    "project_path" : "ex_Data/test_GRanges.R",
+    "properties" : {
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "type" : "r_source"
+}
