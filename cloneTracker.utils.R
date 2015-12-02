@@ -249,7 +249,7 @@ find_sites <- function(sites, posID){
   
   sites.standardized$Position <- NULL
   sites.standardized$Break <- NULL
-  sites.standardized$score <- NULL
+  sites.standardized$Score <- NULL
   sites.standardized$qEnd <- NULL
   sites.standardized$clusteredPosition <- NULL
   if(condense){
@@ -378,7 +378,7 @@ find_sites <- function(sites, posID){
   
   standardized$Position <- NULL
   standardized$Break <- NULL
-  standardized$score <- NULL
+  standardized$Score <- NULL
   standardized$qEnd <- NULL
   standardized$clusteredPosition <- NULL
   standardized$clonecount <- NULL
