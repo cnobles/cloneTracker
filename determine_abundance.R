@@ -74,14 +74,15 @@ determine_abundance <- function(sites, grouping=NULL, replicates=NULL, method="f
   })
   
   abund.list <- lapply(abund.list, function(x){
-    x$totalAbund <- sum(x$estAbund)
+    x <- x %>%
+      mutate(totalAbund = sum(x$estAbund)) %>%
+      mutate(estAbund = round(estAbund)) %>%
+      mutate(relAbund = estAbund/totalAbund) %>%
+      mutate(relRank = rank(-1*relAbund, ties.method="max"))
     x
   })
   
-  abund.dfr <- bind_rows(abund.list) %>%
-    mutate(estAbund = round(estAbund)) %>%
-    mutate(relAbund = estAbund/totalAbund) %>%
-    mutate(relRank = rank(-1*relAbund, ties.method="max"))
+  abund.dfr <- bind_rows(abund.list)
   
   abund.dfr$totalAbund <- NULL
     
