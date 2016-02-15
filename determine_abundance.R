@@ -55,7 +55,7 @@ determine_abundance <- function(sites, grouping=NULL, replicates=NULL, method="f
       }else{
         abund.dfr <- data.frame("posID" = posID,
                                 "estAbund" = abundances,
-                                "replicates" = theta_list$data$replicates)
+                                "replicates" = length(unique(theta_list$data$replicates)))
       }
       abund.dfr$group <- group
       abund.dfr
@@ -65,7 +65,7 @@ determine_abundance <- function(sites, grouping=NULL, replicates=NULL, method="f
   }
   
   sites.list <- split(sites.dfr, sites.dfr$group)
-  
+ 
   abund.list <- lapply(sites.list, function(x){
     abundCalc(locations = x$posID,
               fragLen = x$fragLen, 
