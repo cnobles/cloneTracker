@@ -1,39 +1,41 @@
 #Return all clones present in more than 1 set of data from a list of sites
 
-track_clones <- function(sites.list, gap=5L, track.origin=TRUE, ...){
+track_clones <- function(sites.list, gap=5L, track.origin=TRUE, standardize=TRUE, ...){
   grl.sites <- sites.list
   
   if(class(sites.list) == "list"){grl.sites <- GRangesList(sites.list)}
   
-  if(track.origin == TRUE){
-    list.sites <- lapply(1:length(sites.list), function(i){sites.list[[i]]})
-    list.sites <- lapply(1:length(list.sites), function(i){
-      list.sites[[i]]$origin <- names(sites.list[i])
-      return(list.sites[[i]])
-    })
-    grl.sites <- GRangesList(list.sites)
+  if(track.origin){
+    grl.sites <- GRangesList(lapply(1:length(sites.list), function(i){
+      sites <- sites.list[[i]]
+      sites$origin <- rep(names(sites.list[i]), length(sites))
+      sites
+    }))
   }
   
-  condensed.sites <- unlist(grl.sites, use.names = FALSE)
-  names(condensed.sites) <- 1:length(condensed.sites)
+  ovlp.grps <- findOverlaps(grl.sites, maxgap = gap, ignoreSelf = TRUE, ignoreRedundant = TRUE)
+  if(length(ovlp.grps) > 0){
+   ovlp.sites <- unlist(GRangesList(lapply(1:length(ovlp.grps), function(i){
+     query <- grl.sites[[queryHits(ovlp.grps[i])]]
+     subject <- grl.sites[[subjectHits(ovlp.grps[i])]]
+     hits <- findOverlaps(query, subject, maxgap = gap)
+     c(query[queryHits(hits)], subject[subjectHits(hits)])
+   })))
+  }else{
+   message("No overlaping sites found between groups.")
+   std.list <- GRangesList()
+  }
   
-  overlaps <- findOverlaps(condensed.sites, maxgap = gap, ignoreSelf = FALSE, ignoreRedundant = FALSE)
-  edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+  if(length(ovlp.grps) > 0){
+   if(standardize){
+     std.sites <- standardize_intsites(ovlp.sites, std.gap = 1L, standardize_breakpoints = FALSE)
+   }else{
+     std.sites <- ovlp.sites
+   }
   
-  clusters <- clusters(graph.edgelist(edgelist, directed = FALSE))
-  clusters.names <- split(names(condensed.sites), clusters$membership)
-  clusters.lengths <- data.frame(
-    id = c(1:length(clusters.names)),
-    length = sapply(clusters.names, function(x){
-      length(x)
-    }))
+   std.sites$posid <- generate_posID(std.sites)
+   std.list <- split(std.sites, std.sites$posid)
+  }
   
-  clusters.true <- clusters.names[
-    clusters.lengths[clusters.lengths$length > 1,"id"]]
-  
-  clustered.sites <- GRangesList(lapply(clusters.true, function(x){
-    unname(condensed.sites[x])
-  }))
-  
-  return(clustered.sites)
+  std.list
 }
