@@ -23,18 +23,13 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE, standardize=TRUE
    })))
   }else{
    message("No overlaping sites found between groups.")
-   std.list <- GRangesList()
   }
   
   if(length(ovlp.grps) > 0){
-   if(standardize){
-     std.sites <- standardize_intsites(ovlp.sites, std.gap = 1L, standardize_breakpoints = FALSE)
-   }else{
-     std.sites <- ovlp.sites
-   }
-  
-   std.sites$posid <- generate_posID(std.sites)
-   std.list <- split(std.sites, std.sites$posid)
+    std.sites$posid <- generate_posID(std.sites)
+    std.list <- split(std.sites, std.sites$posid)
+  }else{
+    std.list <- GRangesList()
   }
   
   std.list
