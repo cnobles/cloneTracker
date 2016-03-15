@@ -26,11 +26,11 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE, standardize=TRUE
   }
   
   if(length(ovlp.grps) > 0){
-    std.sites$posid <- generate_posID(std.sites)
-    std.list <- split(std.sites, std.sites$posid)
+    ovlp.sites$posid <- generate_posID(ovlp.sites)
+    ovlp.list <- split(ovlp.sites, ovlp.sites$posid)
   }else{
-    std.list <- GRangesList()
+    ovlp.list <- GRangesList()
   }
   
-  std.list
+  ovlp.list
 }
