@@ -1,6 +1,6 @@
 #Return all clones present in more than 1 set of data from a list of sites
 
-track_clones <- function(sites.list, gap=5L, track.origin=TRUE, standardize=TRUE, ...){
+track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
   grl.sites <- sites.list
   
   if(class(sites.list) == "list"){grl.sites <- GRangesList(sites.list)}
@@ -31,6 +31,6 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE, standardize=TRUE
   }else{
     ovlp.list <- GRangesList()
   }
-  
+  message(paste("Number of overlaping sites:", length(ovlp.list)))
   ovlp.list
 }
