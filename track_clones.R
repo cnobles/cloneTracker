@@ -18,7 +18,10 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
    ovlp.sites <- unlist(unique(GRangesList(lapply(1:length(ovlp.grps), function(i){
      query <- grl.sites[[queryHits(ovlp.grps[i])]]
      subject <- grl.sites[[subjectHits(ovlp.grps[i])]]
-     hits <- findOverlaps(query, subject, maxgap = gap)
+     hits <- findOverlaps(
+       flank(query, -1, start = TRUE), 
+       flank(subject, -1, start = TRUE), 
+       maxgap = gap)
      c(query[queryHits(hits)], subject[subjectHits(hits)])
    }))))
   }else{
