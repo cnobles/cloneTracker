@@ -15,12 +15,12 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
   
   ovlp.grps <- findOverlaps(grl.sites, maxgap = gap, ignoreSelf = TRUE, ignoreRedundant = TRUE)
   if(length(ovlp.grps) > 0){
-   ovlp.sites <- unlist(GRangesList(lapply(1:length(ovlp.grps), function(i){
+   ovlp.sites <- unlist(unique(GRangesList(lapply(1:length(ovlp.grps), function(i){
      query <- grl.sites[[queryHits(ovlp.grps[i])]]
      subject <- grl.sites[[subjectHits(ovlp.grps[i])]]
      hits <- findOverlaps(query, subject, maxgap = gap)
      c(query[queryHits(hits)], subject[subjectHits(hits)])
-   })))
+   }))))
   }else{
    message("No overlaping sites found between groups.")
   }
