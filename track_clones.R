@@ -28,7 +28,7 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
    message("No overlaping sites found between groups.")
   }
   
-  if(length(ovlp.grps) > 0){
+  if(length(ovlp.grps) > 0 & length(ovlp.sites) > 0){
     ovlp.sites$posid <- generate_posID(ovlp.sites)
     ovlp.list <- split(ovlp.sites, ovlp.sites$posid)
   }else{
