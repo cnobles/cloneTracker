@@ -22,7 +22,12 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
        flank(query, -1, start = TRUE), 
        flank(subject, -1, start = TRUE), 
        maxgap = gap)
-     c(query[queryHits(hits)], subject[subjectHits(hits)])
+     if(length(hits) > 0){
+       sites <- c(query[queryHits(hits)], subject[subjectHits(hits)])
+     }else{
+       sites <- GRanges()
+     }
+     sites  
    })))
   }else{
    message("No overlaping sites found between groups.")
