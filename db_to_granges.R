@@ -6,9 +6,9 @@ db_to_granges <- function(dfr_from_db, keep.additional.columns = FALSE){
                 ranges = ranges,
                 strand = dfr$strand)
   
-  GTSP.list <- strsplit(dfr$sampleName, split="-")
+  specimen.list <- strsplit(dfr$sampleName, split="-")
   mcols <- data.frame("sampleName" = dfr$sampleName,
-                      "GTSP" = sapply(1:length(gr), function(i){GTSP.list[[i]][1]}),
+                      "specimen" = sapply(specimen.list, "[[", 1),
                       stringsAsFactors = FALSE)
   
   if(keep.additional.columns){
