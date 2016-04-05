@@ -40,7 +40,7 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
     sites.gr <- GRanges(
       seqnames = sites.dfr$seqnames,
       ranges = ranges,
-      strand = sites.dfr$stand
+      strand = sites.dfr$strand
     )
     mcols(sites.gr) <- sites.dfr[,c(6:length(sites.dfr))]
     ovlp.list <- split(sites.gr, sites.gr$posid)
