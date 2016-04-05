@@ -42,7 +42,7 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
       ranges = ranges,
       strand = sites.dfr$stand
     )
-    mcols(sites.gr) <- sites.dfr[,c(6:length(sites.dfr)]
+    mcols(sites.gr) <- sites.dfr[,c(6:length(sites.dfr))]
     ovlp.list <- split(sites.gr, sites.gr$posid)
   }else{
     ovlp.list <- GRangesList()
