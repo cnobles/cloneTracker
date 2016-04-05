@@ -35,7 +35,7 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
   
   if(length(ovlp.grps) > 0){
     ovlp.sites$posid <- generate_posID(ovlp.sites)
-    sites.dfr <- distinct(as.data.frame(ovlp.sites))
+    sites.dfr <- distinct(as.data.frame(ovlp.sites, row.names = NULL))
     ranges <- IRanges(start = sites.dfr$start, end = sties.dfr$end)
     sites.gr <- GRanges(
       seqnames = sites.dfr$seqnames,
