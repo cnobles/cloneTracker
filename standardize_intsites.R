@@ -12,6 +12,7 @@ standardize_intsites <- function(unstandardized.sites,
   raw.positions <- serial_cluster(raw.positions, gaps = c(std.gap, 5L))
   raw.breakpoints <- serial_cluster(raw.breakpoints, gaps = c(std.gap))
   clus.dfr <- data.frame(
+    "order" = seq(1:length(raw.sites)),
     "seqnames" = seqnames(raw.sites),
     "strand" = strand(raw.sites),
     "called.pos" = start(raw.positions),
@@ -93,6 +94,7 @@ standardize_intsites <- function(unstandardized.sites,
   #Rebuild Granges of standardized sites
   clus.dfr <- do.call(rbind, 
                       lapply(1:length(clus.list), function(i) clus.list[[i]]))
+  clus.dfr <- arrange(clus.dfr, order)
   std.ranges <- IRanges(start = ifelse(clus.dfr$strand == "+", 
                                        clus.dfr$std.pos, clus.dfr$std.bp),
                         end = ifelse(clus.dfr$strand == "+", 
