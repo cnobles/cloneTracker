@@ -45,9 +45,27 @@ generate_posID <- function(sites=NULL, seqnames=NULL, strand=NULL, start=NULL, e
 
 
 #Generate graph of overlaping (determined by maxgap size) GRange observations
-graphOverlaps <- function(sites, gap){
+.graphOverlaps <- function(sites, gap){
   overlaps <- findOverlaps(sites, maxgap = gap)
   edgelist <- matrix(c(queryHits(overlaps), subjectHits(overlaps)), ncol = 2)
+  graph <- graph.edgelist(edgelist, directed = FALSE)
+  graph
+}
+
+####    Cluster integration sites by axil-node or partial graph method    ####
+graphOverlaps <- function(sites, gap){
+  sites$clus.key <- 1:length(sites)
+  fl.sites <- flank(sites, width = -1, start = TRUE)
+  rd.sites <- reduce(fl.sites, min.gapwidth = gap, with.revmap = TRUE)
+  revmap <- rd.sites$revmap
+  
+  axil_nodes <- as.numeric(Rle(
+    values = sites$clus.key[sapply(revmap, "[", 1)],
+    lengths = sapply(revmap, length)
+  ))
+  nodes <- sites$clus.key[unlist(revmap)]
+  
+  edgelist <- unique(matrix( c(axil_nodes, nodes), ncol = 2 ))
   graph <- graph.edgelist(edgelist, directed = FALSE)
   graph
 }
