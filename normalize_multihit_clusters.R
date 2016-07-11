@@ -21,10 +21,10 @@ normalize_multihit_clutsers <- function(multihits.gr, gap = 5L, grouping = NULL)
     
     split.key <- split(key, key$clusID)
     edgelist <- matrix(c(
-      Rle(
+      as.character(Rle(
         values = sapply(split.key, function(x) x$multihitID[1]),
         lengths = sapply(split.key, nrow)
-      ),
+      )),
       unlist(sapply(split.key, function(x) x$multihitID))),
       ncol = 2
     )
