@@ -13,7 +13,13 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
     }))
   }
   
-  ovlp.grps <- findOverlaps(grl.sites, maxgap = gap, ignoreSelf = TRUE, ignoreRedundant = TRUE)
+  ovlp.grps <- findOverlaps(
+    flank(grl.sites, width = -1, start = TRUE), 
+    maxgap = gap, 
+    ignoreSelf = TRUE, 
+    ignoreRedundant = TRUE
+  )
+  
   if(length(ovlp.grps) > 0){
    ovlp.sites <- unlist(GRangesList(lapply(1:length(ovlp.grps), function(i){
      query <- grl.sites[[queryHits(ovlp.grps[i])]]
@@ -30,11 +36,10 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
      sites  
    })))
   }else{
-   ovlp.sites <- GRanges()
    message("No overlaping sites found between groups.")
   }
   
-  if(length(ovlp.sites) > 0){
+  if(length(ovlp.grps) > 0){
     ovlp.sites$posid <- generate_posID(ovlp.sites)
     sites.dfr <- distinct(as.data.frame(ovlp.sites, row.names = NULL))
     ranges <- IRanges(start = sites.dfr$start, end = sites.dfr$end)
