@@ -30,10 +30,11 @@ track_clones <- function(sites.list, gap=5L, track.origin=TRUE){
      sites  
    })))
   }else{
+   ovlp.sites <- GRanges()
    message("No overlaping sites found between groups.")
   }
   
-  if(length(ovlp.grps) > 0){
+  if(length(ovlp.sites) > 0){
     ovlp.sites$posid <- generate_posID(ovlp.sites)
     sites.dfr <- distinct(as.data.frame(ovlp.sites, row.names = NULL))
     ranges <- IRanges(start = sites.dfr$start, end = sites.dfr$end)
